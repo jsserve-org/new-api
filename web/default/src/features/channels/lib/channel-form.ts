@@ -79,6 +79,18 @@ function isOptionalStatusCodeMapping(value: string | undefined): boolean {
   }
 }
 
+function isGitHubToken(value: string | undefined): boolean {
+  if (!value) return true // empty is fine during initial form fill
+  const trimmed = value.trim()
+  return (
+    trimmed.startsWith('ghp_') ||
+    trimmed.startsWith('gho_') ||
+    trimmed.startsWith('github_pat_') ||
+    trimmed.startsWith('ghu_') ||
+    trimmed.startsWith('tid=') // raw copilot token
+  )
+}
+
 function isCodexCredential(value: string | undefined): boolean {
   try {
     const parsed = parseOptionalJson(value)
@@ -230,6 +242,16 @@ export const channelFormSchema = z
           ctx,
           'key',
           'Codex credential must be a JSON object with access_token and account_id'
+        )
+      }
+    }
+
+    if (data.type === 58) {
+      if (data.key?.trim() && !isGitHubToken(data.key)) {
+        addRequiredIssue(
+          ctx,
+          'key',
+          'Copilot key must be a GitHub personal access token (starts with ghp_, gho_, github_pat_, ghu_) or a raw Copilot token (tid=)'
         )
       }
     }
