@@ -24,6 +24,7 @@ import {
   Settings2,
   Trash2,
   Tags,
+  Boxes,
   TestTube,
   DollarSign,
   SortAsc,
@@ -59,6 +60,8 @@ export function ChannelsPrimaryButtons() {
     setCurrentRow,
     enableTagMode,
     setEnableTagMode,
+    enableProviderMode,
+    setEnableProviderMode,
     idSort,
     setIdSort,
     upstream,
@@ -69,6 +72,19 @@ export function ChannelsPrimaryButtons() {
   const handleTagModeToggle = (checked: boolean) => {
     localStorage.setItem('enable-tag-mode', String(checked))
     setEnableTagMode(checked)
+    if (checked) {
+      localStorage.setItem('enable-provider-mode', 'false')
+      setEnableProviderMode(false)
+    }
+  }
+
+  const handleProviderModeToggle = (checked: boolean) => {
+    localStorage.setItem('enable-provider-mode', String(checked))
+    setEnableProviderMode(checked)
+    if (checked) {
+      localStorage.setItem('enable-tag-mode', 'false')
+      setEnableTagMode(false)
+    }
   }
 
   const handleIdSortToggle = (checked: boolean) => {
@@ -89,6 +105,18 @@ export function ChannelsPrimaryButtons() {
             id='tag-mode'
             checked={enableTagMode}
             onCheckedChange={handleTagModeToggle}
+          />
+        </div>
+
+        <div className='hidden items-center gap-2 rounded-md border px-3 py-1.5 sm:flex'>
+          <Boxes className='text-muted-foreground h-4 w-4' />
+          <Label htmlFor='provider-mode' className='cursor-pointer text-sm'>
+            {t('Provider Mode')}
+          </Label>
+          <Switch
+            id='provider-mode'
+            checked={enableProviderMode}
+            onCheckedChange={handleProviderModeToggle}
           />
         </div>
 
@@ -131,6 +159,15 @@ export function ChannelsPrimaryButtons() {
             >
               <Tags className='mr-2 h-4 w-4' />
               {t('Tag Mode')}
+            </DropdownMenuCheckboxItem>
+
+            <DropdownMenuCheckboxItem
+              className='sm:hidden'
+              checked={enableProviderMode}
+              onCheckedChange={handleProviderModeToggle}
+            >
+              <Boxes className='mr-2 h-4 w-4' />
+              {t('Provider Mode')}
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuCheckboxItem

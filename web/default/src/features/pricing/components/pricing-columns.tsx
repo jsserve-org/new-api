@@ -28,6 +28,7 @@ import {
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge, StatusBadgeList } from '@/components/status-badge'
+import { CHANNEL_STATUS_CONFIG } from '@/features/channels/constants'
 import { DEFAULT_TOKEN_UNIT, QUOTA_TYPE_VALUES } from '../constants'
 import {
   getDynamicDisplayGroupRatio,
@@ -368,6 +369,40 @@ export function usePricingColumns(
         )
       },
       size: 130,
+      enableSorting: false,
+    },
+
+    // Providers column (authenticated users only; backend omits when anonymous)
+    {
+      accessorKey: 'providers',
+      meta: { label: t('Providers') },
+      header: t('Providers'),
+      cell: ({ row }) => {
+        const providers = row.original.providers || []
+        if (providers.length === 0) {
+          return <span className='text-muted-foreground/50 text-xs'>—</span>
+        }
+        return (
+          <StatusBadgeList
+            items={providers}
+            max={2}
+            renderItem={(provider) => {
+              const statusConfig = CHANNEL_STATUS_CONFIG[provider.status]
+              return (
+                <StatusBadge
+                  key={provider.channel_id}
+                  label={provider.provider_name}
+                  variant={statusConfig?.variant || 'neutral'}
+                  size='sm'
+                  copyable={false}
+                  title={`${provider.provider_type_name} · ${t(statusConfig?.label || 'Unknown')}`}
+                />
+              )
+            }}
+          />
+        )
+      },
+      size: 180,
       enableSorting: false,
     },
 

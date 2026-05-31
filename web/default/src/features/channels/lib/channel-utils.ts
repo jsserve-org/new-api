@@ -502,6 +502,8 @@ export function getAttentionReason(channel: Channel): string | null {
  */
 export type TagRow = Channel & {
   children: Channel[]
+  aggregate_type?: 'tag' | 'provider'
+  aggregate_label?: string
 }
 
 /**
@@ -544,6 +546,8 @@ export function aggregateChannelsByTag(
         created_time: 0,
         balance_updated_time: 0,
         models: '',
+        aggregate_type: 'tag',
+        aggregate_label: tag,
         children: [],
       } as TagRow
       tagMap.set(tag, tagRow)
@@ -596,6 +600,88 @@ export function aggregateChannelsByTag(
       tagRow.status = 1
     } else if (tagRow.status === undefined) {
       tagRow.status = channel.status
+    }
+  }
+
+  return result
+}
+
+/**
+ * Aggregate channels by provider type for provider mode display.
+ */
+export function aggregateChannelsByProvider(
+  channels: Channel[]
+): (Channel | TagRow)[] {
+  const providerMap = new Map<number, TagRow>()
+  const result: (Channel | TagRow)[] = []
+
+  for (const channel of channels) {
+    const providerType = channel.type
+    const providerLabel = getChannelTypeLabel(providerType)
+
+    if (!providerMap.has(providerType)) {
+      const providerRow = {
+        ...channel,
+        key: `provider-${providerType}`,
+        id: `provider-${providerType}` as unknown as number,
+        tag: providerLabel,
+        name: providerLabel,
+        type: providerType,
+        status: undefined as unknown as number,
+        group: '',
+        used_quota: 0,
+        response_time: 0,
+        priority: -1 as unknown as number | null,
+        weight: -1 as unknown as number | null,
+        balance: 0,
+        test_time: 0,
+        created_time: 0,
+        balance_updated_time: 0,
+        models: '',
+        aggregate_type: 'provider',
+        aggregate_label: providerLabel,
+        children: [],
+      } as TagRow
+      providerMap.set(providerType, providerRow)
+      result.push(providerRow)
+    }
+
+    const providerRow = providerMap.get(providerType)!
+    providerRow.children.push(channel)
+    const childCount = providerRow.children.length
+    providerRow.used_quota += channel.used_quota
+    providerRow.response_time =
+      (providerRow.response_time * (childCount - 1) + channel.response_time) /
+      childCount
+
+    if (providerRow.priority === -1) {
+      providerRow.priority = channel.priority
+    } else if (providerRow.priority !== channel.priority) {
+      providerRow.priority = null
+    }
+
+    if (providerRow.weight === -1) {
+      providerRow.weight = channel.weight
+    } else if (providerRow.weight !== channel.weight) {
+      providerRow.weight = null
+    }
+
+    if (providerRow.group === '') {
+      providerRow.group = channel.group
+    } else {
+      const existingGroups = new Set(providerRow.group.split(',').filter(Boolean))
+      const newGroups = channel.group.split(',').filter(Boolean)
+      newGroups.forEach((g) => {
+        if (!existingGroups.has(g)) {
+          providerRow.group += ',' + g
+        }
+      })
+    }
+
+    if (channel.status === 1) {
+      providerRow.status = 1
+    } else if (providerRow.status === undefined) {
+      providerRow.status = channel.status
     }
   }
 

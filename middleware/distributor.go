@@ -57,6 +57,7 @@ func Distribute() func(c *gin.Context) {
 			// Select a channel for the user
 			// check token model mapping
 			modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
+			var tokenModelLimit map[string]bool
 			if modelLimitEnable {
 				s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
 				if !ok {
@@ -64,15 +65,16 @@ func Distribute() func(c *gin.Context) {
 					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenNoModelAccess))
 					return
 				}
-				var tokenModelLimit map[string]bool
 				tokenModelLimit, ok = s.(map[string]bool)
 				if !ok {
 					tokenModelLimit = map[string]bool{}
 				}
-				matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
-				if _, ok := tokenModelLimit[matchName]; !ok {
-					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
-					return
+				if modelRequest.Model != service.AutoModelName {
+					matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
+					if _, ok := tokenModelLimit[matchName]; !ok {
+						abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
+						return
+					}
 				}
 			}
 
@@ -101,41 +103,48 @@ func Distribute() func(c *gin.Context) {
 					}
 				}
 
-				if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
-					preferred, err := model.CacheGetChannel(preferredChannelID)
-					if err == nil && preferred != nil {
-						if preferred.Status != common.ChannelStatusEnabled {
-							if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
-								abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorAffinityChannelDisabled))
-								return
-							}
-						} else if usingGroup == "auto" {
-							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
-							autoGroups := service.GetUserAutoGroup(userGroup)
-							for _, g := range autoGroups {
-								if model.IsChannelEnabledForGroupModel(g, modelRequest.Model, preferred.Id) {
-									selectGroup = g
-									common.SetContextKey(c, constant.ContextKeyAutoGroup, g)
-									channel = preferred
-									service.MarkChannelAffinityUsed(c, g, preferred.Id)
-									break
+				if modelRequest.Model != service.AutoModelName {
+					if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
+						preferred, err := model.CacheGetChannel(preferredChannelID)
+						if err == nil && preferred != nil {
+							if preferred.Status != common.ChannelStatusEnabled {
+								if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+									abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorAffinityChannelDisabled))
+									return
 								}
+							} else if usingGroup == "auto" {
+								userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+								autoGroups := service.GetUserAutoGroup(userGroup)
+								for _, g := range autoGroups {
+									if model.IsChannelEnabledForGroupModel(g, modelRequest.Model, preferred.Id) {
+										selectGroup = g
+										common.SetContextKey(c, constant.ContextKeyAutoGroup, g)
+										channel = preferred
+										service.MarkChannelAffinityUsed(c, g, preferred.Id)
+										break
+									}
+								}
+							} else if model.IsChannelEnabledForGroupModel(usingGroup, modelRequest.Model, preferred.Id) {
+								channel = preferred
+								selectGroup = usingGroup
+								service.MarkChannelAffinityUsed(c, usingGroup, preferred.Id)
 							}
-						} else if model.IsChannelEnabledForGroupModel(usingGroup, modelRequest.Model, preferred.Id) {
-							channel = preferred
-							selectGroup = usingGroup
-							service.MarkChannelAffinityUsed(c, usingGroup, preferred.Id)
 						}
 					}
 				}
 
 				if channel == nil {
-					channel, selectGroup, err = service.CacheGetRandomSatisfiedChannel(&service.RetryParam{
-						Ctx:        c,
-						ModelName:  modelRequest.Model,
-						TokenGroup: usingGroup,
-						Retry:      common.GetPointer(0),
-					})
+					retryParam := &service.RetryParam{
+						Ctx:           c,
+						ModelName:     modelRequest.Model,
+						AllowedModels: tokenModelLimit,
+						TokenGroup:    usingGroup,
+						Retry:         common.GetPointer(0),
+					}
+					channel, selectGroup, err = service.CacheGetRandomSatisfiedChannel(retryParam)
+					if modelRequest.Model == service.AutoModelName && retryParam.ModelName != service.AutoModelName {
+						modelRequest.Model = retryParam.ModelName
+					}
 					if err != nil {
 						showGroup := usingGroup
 						if usingGroup == "auto" {

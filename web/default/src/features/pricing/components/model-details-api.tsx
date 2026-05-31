@@ -32,6 +32,7 @@ import type { BundledLanguage } from 'shiki/bundle/web'
 import { cn } from '@/lib/utils'
 import { useStatus } from '@/hooks/use-status'
 import { Badge } from '@/components/ui/badge'
+import { CHANNEL_STATUS_CONFIG } from '@/features/channels/constants'
 import {
   Table,
   TableBody,
@@ -742,6 +743,34 @@ export function ModelDetailsProviderInfo(props: { model: PricingModel }) {
             )}
           </div>
         </InfoCell>
+
+        {props.model.providers && props.model.providers.length > 0 && (
+          <InfoCell label={t('Channel providers')}>
+            <div className='flex flex-col gap-1'>
+              {props.model.providers.slice(0, 4).map((provider) => {
+                const statusConfig = CHANNEL_STATUS_CONFIG[provider.status]
+                return (
+                  <div
+                    key={provider.channel_id}
+                    className='flex items-center justify-between gap-2'
+                  >
+                    <span className='truncate text-sm font-medium'>
+                      {provider.provider_name}
+                    </span>
+                    <Badge variant='outline' className='h-5 text-[10px]'>
+                      {t(statusConfig?.label || 'Unknown')}
+                    </Badge>
+                  </div>
+                )
+              })}
+              {props.model.providers.length > 4 && (
+                <span className='text-muted-foreground text-xs'>
+                  +{props.model.providers.length - 4} {t('more')}
+                </span>
+              )}
+            </div>
+          </InfoCell>
+        )}
 
         <InfoCell label={t('Tokenizer')}>
           <div className='flex flex-col gap-0.5'>

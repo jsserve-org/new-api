@@ -27,6 +27,15 @@ export type PricingVendor = {
   description?: string
 }
 
+export type PricingProvider = {
+  channel_id: number
+  provider_name: string
+  provider_type: number
+  provider_type_name: string
+  status: number
+  groups?: string[]
+}
+
 export type PricingModel = {
   id: number
   model_name: string
@@ -55,6 +64,8 @@ export type PricingModel = {
   billing_expr?: string
   /** Pricing version returned by backend, useful for cache busting */
   pricing_version?: string
+  /** Provider channel details are returned only for authenticated users. */
+  providers?: PricingProvider[]
   /**
    * Optional model metadata fields. These are not yet returned by the backend
    * and are populated client-side from {@link inferModelMetadata}.

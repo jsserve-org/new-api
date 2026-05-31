@@ -51,6 +51,8 @@ type ChannelsContextType = {
   setCurrentTag: (tag: string | null) => void
   enableTagMode: boolean
   setEnableTagMode: (enabled: boolean) => void
+  enableProviderMode: boolean
+  setEnableProviderMode: (enabled: boolean) => void
   idSort: boolean
   setIdSort: (enabled: boolean) => void
   upstream: UpstreamUpdateState
@@ -75,6 +77,9 @@ export function ChannelsProvider({ children }: { children: React.ReactNode }) {
   const [enableTagMode, setEnableTagMode] = useState(() => {
     return localStorage.getItem('enable-tag-mode') === 'true'
   })
+  const [enableProviderMode, setEnableProviderMode] = useState(() => {
+    return localStorage.getItem('enable-provider-mode') === 'true'
+  })
   const [idSort, setIdSort] = useState(() => {
     return localStorage.getItem('channels-id-sort') === 'true'
   })
@@ -96,6 +101,8 @@ export function ChannelsProvider({ children }: { children: React.ReactNode }) {
         setCurrentTag,
         enableTagMode,
         setEnableTagMode,
+        enableProviderMode,
+        setEnableProviderMode,
         idSort,
         setIdSort,
         upstream,

@@ -48,6 +48,7 @@ import {
 import {
   channelsQueryKeys,
   aggregateChannelsByTag,
+  aggregateChannelsByProvider,
   isTagAggregateRow,
   getChannelTypeIcon,
   getChannelTypeLabel,
@@ -76,7 +77,7 @@ function isDisabledChannelRow(channel: Channel) {
 
 export function ChannelsTable() {
   const { t } = useTranslation()
-  const { enableTagMode, idSort } = useChannels()
+  const { enableTagMode, enableProviderMode, idSort } = useChannels()
   const isMobile = useMediaQuery('(max-width: 640px)')
 
   // Table state
@@ -261,16 +262,20 @@ export function ChannelsTable() {
     placeholderData: (previousData) => previousData,
   })
 
-  // Apply tag aggregation if tag mode is enabled
+  // Apply aggregation if tag/provider mode is enabled
   const channels = useMemo(() => {
     const rawChannels = data?.data?.items || []
+
+    if (enableProviderMode && rawChannels.length > 0) {
+      return aggregateChannelsByProvider(rawChannels)
+    }
 
     if (enableTagMode && rawChannels.length > 0) {
       return aggregateChannelsByTag(rawChannels)
     }
 
     return rawChannels
-  }, [data, enableTagMode])
+  }, [data, enableProviderMode, enableTagMode])
 
   const totalCount = data?.data?.total || 0
   const typeCounts = data?.data?.type_counts

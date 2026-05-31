@@ -268,6 +268,10 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 	}
 
+	if len(userModelNames) > 0 && !common.StringsContains(userModelNames, service.AutoModelName) {
+		userModelNames = append(userModelNames, service.AutoModelName)
+	}
+
 	ownerByModel := map[string]string{}
 	if len(ownerGroups) > 0 {
 		ownerByModel = getPreferredModelOwners(userModelNames, ownerGroups)

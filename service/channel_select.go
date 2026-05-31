@@ -2,21 +2,27 @@ package service
 
 import (
 	"errors"
+	"math/rand"
+	"sort"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 )
 
+const AutoModelName = "auto"
+
 type RetryParam struct {
-	Ctx          *gin.Context
-	TokenGroup   string
-	ModelName    string
-	Retry        *int
-	resetNextTry bool
+	Ctx           *gin.Context
+	TokenGroup    string
+	ModelName     string
+	AllowedModels map[string]bool
+	Retry         *int
+	resetNextTry  bool
 }
 
 func (p *RetryParam) GetRetry() int {
@@ -43,6 +49,56 @@ func (p *RetryParam) IncreaseRetry() {
 
 func (p *RetryParam) ResetRetryNextTry() {
 	p.resetNextTry = true
+}
+
+func isAutoModelName(modelName string) bool {
+	return modelName == AutoModelName
+}
+
+func allowedAutoModel(candidate string, allowed map[string]bool) bool {
+	if candidate == "" || candidate == AutoModelName {
+		return false
+	}
+	if len(allowed) == 0 {
+		return true
+	}
+	if allowed[AutoModelName] {
+		return true
+	}
+	if allowed[candidate] {
+		return true
+	}
+	_, ok := allowed[ratio_setting.FormatMatchingModelName(candidate)]
+	return ok
+}
+
+func getAutoCandidateModels(group string, allowed map[string]bool) []string {
+	models := model.GetGroupEnabledModels(group)
+	candidates := make([]string, 0, len(models))
+	for _, modelName := range models {
+		if allowedAutoModel(modelName, allowed) && !common.StringsContains(candidates, modelName) {
+			candidates = append(candidates, modelName)
+		}
+	}
+	sort.Strings(candidates)
+	rand.Shuffle(len(candidates), func(i, j int) {
+		candidates[i], candidates[j] = candidates[j], candidates[i]
+	})
+	return candidates
+}
+
+func getRandomSatisfiedChannelForAnyModel(group string, allowed map[string]bool, retry int) (*model.Channel, string, error) {
+	candidates := getAutoCandidateModels(group, allowed)
+	for _, candidate := range candidates {
+		channel, err := model.GetRandomSatisfiedChannel(group, candidate, retry)
+		if err != nil {
+			return nil, candidate, err
+		}
+		if channel != nil {
+			return channel, candidate, nil
+		}
+	}
+	return nil, "", nil
 }
 
 // CacheGetRandomSatisfiedChannel tries to get a random channel that satisfies the requirements.
@@ -115,7 +171,15 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
 
-			channel, _ = model.GetRandomSatisfiedChannel(autoGroup, param.ModelName, priorityRetry)
+			selectedModel := param.ModelName
+			if isAutoModelName(param.ModelName) {
+				channel, selectedModel, err = getRandomSatisfiedChannelForAnyModel(autoGroup, param.AllowedModels, priorityRetry)
+				if err != nil {
+					return nil, selectGroup, err
+				}
+			} else {
+				channel, _ = model.GetRandomSatisfiedChannel(autoGroup, param.ModelName, priorityRetry)
+			}
 			if channel == nil {
 				// Current group has no available channel for this model, try next group
 				// 当前分组没有该模型的可用渠道，尝试下一个分组
@@ -127,6 +191,9 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				// 重置重试计数器，以便外层循环可以为下一个分组继续
 				param.SetRetry(0)
 				continue
+			}
+			if isAutoModelName(param.ModelName) && selectedModel != "" {
+				param.ModelName = selectedModel
 			}
 			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroup, autoGroup)
 			selectGroup = autoGroup
@@ -153,9 +220,20 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			break
 		}
 	} else {
-		channel, err = model.GetRandomSatisfiedChannel(param.TokenGroup, param.ModelName, param.GetRetry())
-		if err != nil {
-			return nil, param.TokenGroup, err
+		if isAutoModelName(param.ModelName) {
+			selectedModel := ""
+			channel, selectedModel, err = getRandomSatisfiedChannelForAnyModel(param.TokenGroup, param.AllowedModels, param.GetRetry())
+			if err != nil {
+				return nil, param.TokenGroup, err
+			}
+			if selectedModel != "" {
+				param.ModelName = selectedModel
+			}
+		} else {
+			channel, err = model.GetRandomSatisfiedChannel(param.TokenGroup, param.ModelName, param.GetRetry())
+			if err != nil {
+				return nil, param.TokenGroup, err
+			}
 		}
 	}
 	return channel, selectGroup, nil

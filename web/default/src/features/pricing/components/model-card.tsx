@@ -23,6 +23,7 @@ import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { StatusBadge } from '@/components/status-badge'
+import { CHANNEL_STATUS_CONFIG } from '@/features/channels/constants'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import {
   getDynamicDisplayGroupRatio,
@@ -76,6 +77,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
 
   const primaryGroup = groups[0]
   const bottomTags = [...endpoints.slice(0, 2), ...tags.slice(0, 2)]
+  const providers = props.model.providers || []
+  const visibleProviders = providers.slice(0, 2)
+  const hiddenProviderCount = Math.max(providers.length - visibleProviders.length, 0)
   const hiddenCount =
     Math.max(groups.length - 1, 0) +
     Math.max(endpoints.length - 2, 0) +
@@ -225,6 +229,32 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       <p className='text-muted-foreground mt-2 line-clamp-1 flex-1 text-[13px] leading-relaxed sm:mt-4 sm:line-clamp-2 sm:min-h-[2.5rem]'>
         {props.model.description || t('No description available.')}
       </p>
+
+      {providers.length > 0 && (
+        <div className='mt-2 flex flex-wrap items-center gap-1.5'>
+          <span className='text-muted-foreground text-xs font-medium'>
+            {t('Providers')}:
+          </span>
+          {visibleProviders.map((provider) => {
+            const statusConfig = CHANNEL_STATUS_CONFIG[provider.status]
+            return (
+              <StatusBadge
+                key={provider.channel_id}
+                label={provider.provider_name}
+                variant={statusConfig?.variant || 'neutral'}
+                size='sm'
+                copyable={false}
+                title={`${provider.provider_type_name} · ${t(statusConfig?.label || 'Unknown')}`}
+              />
+            )
+          })}
+          {hiddenProviderCount > 0 && (
+            <span className='text-muted-foreground/60 text-xs'>
+              +{hiddenProviderCount}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Footer: left metadata and right performance summary share row alignment */}
       <div className='mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 sm:mt-4'>

@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"sync"
@@ -14,6 +15,15 @@ import (
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 )
+
+type PricingProvider struct {
+	ChannelID        int      `json:"channel_id"`
+	ProviderName     string   `json:"provider_name"`
+	ProviderType     int      `json:"provider_type"`
+	ProviderTypeName string   `json:"provider_type_name"`
+	Status           int      `json:"status"`
+	Groups           []string `json:"groups,omitempty"`
+}
 
 type Pricing struct {
 	ModelName              string                  `json:"model_name"`
@@ -36,6 +46,7 @@ type Pricing struct {
 	BillingMode            string                  `json:"billing_mode,omitempty"`
 	BillingExpr            string                  `json:"billing_expr,omitempty"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
+	Providers              []PricingProvider       `json:"providers,omitempty"`
 }
 
 type PricingVendor struct {
@@ -189,6 +200,7 @@ func updatePricing() {
 	}
 
 	modelGroupsMap := make(map[string]*types.Set[string])
+	modelProviderMap := make(map[string]map[int]*PricingProvider)
 
 	for _, ability := range enableAbilities {
 		groups, ok := modelGroupsMap[ability.Model]
@@ -197,6 +209,35 @@ func updatePricing() {
 			modelGroupsMap[ability.Model] = groups
 		}
 		groups.Add(ability.Group)
+
+		providers, ok := modelProviderMap[ability.Model]
+		if !ok {
+			providers = make(map[int]*PricingProvider)
+			modelProviderMap[ability.Model] = providers
+		}
+		provider, ok := providers[ability.ChannelId]
+		if !ok {
+			providerName := strings.TrimSpace(ability.ChannelName)
+			providerTypeName := constant.ChannelTypeNames[ability.ChannelType]
+			if providerTypeName == "" {
+				providerTypeName = "Unknown"
+			}
+			if providerName == "" {
+				providerName = providerTypeName
+			}
+			provider = &PricingProvider{
+				ChannelID:        ability.ChannelId,
+				ProviderName:     providerName,
+				ProviderType:     ability.ChannelType,
+				ProviderTypeName: providerTypeName,
+				Status:           ability.ChannelStatus,
+				Groups:           []string{},
+			}
+			providers[ability.ChannelId] = provider
+		}
+		if !common.StringsContains(provider.Groups, ability.Group) {
+			provider.Groups = append(provider.Groups, ability.Group)
+		}
 	}
 
 	//这里使用切片而不是Set，因为一个模型可能支持多个端点类型，并且第一个端点是优先使用端点
@@ -336,6 +377,16 @@ func updatePricing() {
 				pricing.BillingMode = billingMode
 				pricing.BillingExpr = expr
 			}
+		}
+		if providersByID := modelProviderMap[model]; len(providersByID) > 0 {
+			pricing.Providers = make([]PricingProvider, 0, len(providersByID))
+			for _, provider := range providersByID {
+				sort.Strings(provider.Groups)
+				pricing.Providers = append(pricing.Providers, *provider)
+			}
+			sort.Slice(pricing.Providers, func(i, j int) bool {
+				return pricing.Providers[i].ChannelID < pricing.Providers[j].ChannelID
+			})
 		}
 		pricingMap = append(pricingMap, pricing)
 	}

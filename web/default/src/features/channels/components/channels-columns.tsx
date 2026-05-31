@@ -183,8 +183,11 @@ function PriorityCell({ channel }: { channel: Channel }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingValue, setPendingValue] = useState<number | null>(null)
 
-  // Tag row - editable with confirmation for all tag channels
+  // Aggregate row - tag rows are editable, provider rows are display-only
   if (isTagRow) {
+    if ((channel as TagRow).aggregate_type === 'provider') {
+      return <span className='text-muted-foreground/50 text-xs'>—</span>
+    }
     const tag = channel.tag || ''
     const channelCount = channel.children?.length || 0
 
@@ -238,8 +241,11 @@ function WeightCell({ channel }: { channel: Channel }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingValue, setPendingValue] = useState<number | null>(null)
 
-  // Tag row - editable with confirmation for all tag channels
+  // Aggregate row - tag rows are editable, provider rows are display-only
   if (isTagRow) {
+    if ((channel as TagRow).aggregate_type === 'provider') {
+      return <span className='text-muted-foreground/50 text-xs'>—</span>
+    }
     const tag = channel.tag || ''
     const channelCount = channel.children?.length || 0
 
@@ -499,10 +505,12 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
         const name = row.getValue('name') as string
         const channel = row.original
 
-        // Tag row with expand/collapse
+        // Aggregate row with expand/collapse
         if (isTagRow) {
-          const tag = (row.original as TagRow).tag || name
-          const childrenCount = (row.original as TagRow).children?.length || 0
+          const aggregateRow = row.original as TagRow
+          const tag = aggregateRow.aggregate_label || aggregateRow.tag || name
+          const childrenCount = aggregateRow.children?.length || 0
+          const isProviderAggregate = aggregateRow.aggregate_type === 'provider'
 
           return (
             <div className='flex items-center gap-2'>
@@ -519,9 +527,13 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
                 )}
               </Button>
               <div className='flex items-center gap-1.5'>
-                <span className='font-semibold'>Tag：{tag}</span>
+                {isProviderAggregate &&
+                  getLobeIcon(`${getChannelTypeIcon(aggregateRow.type)}.Color`, 14)}
+                <span className='font-semibold'>
+                  {isProviderAggregate ? t('Provider') : t('Tag')}：{t(tag)}
+                </span>
                 <StatusBadge
-                  label={`${childrenCount} channels`}
+                  label={t('{{count}} channels', { count: childrenCount })}
                   variant='blue'
                   size='sm'
                   copyable={false}
@@ -609,9 +621,14 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
         const isTagRow = isTagAggregateRow(row.original)
 
         if (isTagRow) {
+          const aggregateType = (row.original as TagRow).aggregate_type
           return (
             <StatusBadge
-              label={t('Tag Aggregate')}
+              label={
+                aggregateType === 'provider'
+                  ? t('Provider Aggregate')
+                  : t('Tag Aggregate')
+              }
               variant='blue'
               size='sm'
               copyable={false}
@@ -1047,6 +1064,9 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
         const isTagRow = isTagAggregateRow(row.original)
 
         if (isTagRow) {
+          if ((row.original as TagRow).aggregate_type === 'provider') {
+            return null
+          }
           return (
             <DataTableTagRowActions
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
