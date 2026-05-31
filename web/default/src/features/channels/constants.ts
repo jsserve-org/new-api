@@ -389,7 +389,7 @@ export const TYPE_TO_KEY_PROMPT: Record<number, string> = {
   50: 'Format: AccessKey|SecretKey (or just ApiKey if upstream is New API)',
   51: 'Format: Access Key ID|Secret Access Key',
   57: 'Paste Codex OAuth JSON credential (access_token / refresh_token / account_id)',
-  58: 'Use Authorize to complete GitHub device-code login, or paste a GitHub OAuth token (gho_/ghu_) or raw Copilot token (tid=)'
+  58: 'Paste your GitHub personal access token (starts with ghp_, gho_, github_pat_, or ghu_)',
 }
 
 export const CHANNEL_TYPE_WARNINGS: Record<number, string> = {

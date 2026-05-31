@@ -73,29 +73,6 @@ export type CodexUsageResponse = {
   data?: Record<string, unknown>
 }
 
-export type CopilotDeviceStartResponse = {
-  success: boolean
-  message?: string
-  data?: {
-    device_code?: string
-    user_code?: string
-    verification_uri?: string
-    verification_uri_complete?: string
-    expires_in?: number
-    interval?: number
-  }
-}
-
-export type CopilotDeviceCompleteResponse = {
-  success: boolean
-  message?: string
-  data?: {
-    key?: string
-    token_type?: string
-    scope?: string
-  }
-}
-
 export type CodexCredentialRefreshResponse = {
   success: boolean
   message?: string
@@ -346,26 +323,6 @@ export async function getCodexUsage(
   const res = await api.get(
     `/api/channel/${channelId}/codex/usage`,
     channelActionConfig({ disableDuplicate: true })
-  )
-  return res.data
-}
-
-export async function startCopilotDeviceAuth(): Promise<CopilotDeviceStartResponse> {
-  const res = await api.post(
-    '/api/channel/copilot/device/start',
-    {},
-    channelActionConfig()
-  )
-  return res.data
-}
-
-export async function completeCopilotDeviceAuth(
-  deviceCode: string
-): Promise<CopilotDeviceCompleteResponse> {
-  const res = await api.post(
-    '/api/channel/copilot/device/complete',
-    { device_code: deviceCode },
-    channelActionConfig()
   )
   return res.data
 }
