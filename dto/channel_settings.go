@@ -1,12 +1,55 @@
 package dto
 
+import (
+	"fmt"
+	"strings"
+)
+
 type ChannelSettings struct {
 	ForceFormat            bool   `json:"force_format,omitempty"`
 	ThinkingToContent      bool   `json:"thinking_to_content,omitempty"`
 	Proxy                  string `json:"proxy"`
+	OpenVPNConfig          string `json:"openvpn_config,omitempty"`
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
 	SystemPrompt           string `json:"system_prompt,omitempty"`
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
+}
+
+func (s *ChannelSettings) ApplyDerivedProxy() {
+	if s == nil || strings.TrimSpace(s.Proxy) != "" {
+		return
+	}
+	s.Proxy = extractProxyFromOpenVPNConfig(s.OpenVPNConfig)
+}
+
+func extractProxyFromOpenVPNConfig(config string) string {
+	if strings.TrimSpace(config) == "" {
+		return ""
+	}
+
+	for _, rawLine := range strings.Split(config, "\n") {
+		line := strings.TrimSpace(rawLine)
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+
+		switch parts[0] {
+		case "http-proxy":
+			if len(parts) >= 3 {
+				return fmt.Sprintf("http://%s:%s", parts[1], parts[2])
+			}
+		case "socks-proxy":
+			if len(parts) >= 3 {
+				return fmt.Sprintf("socks5://%s:%s", parts[1], parts[2])
+			}
+		}
+	}
+
+	return ""
 }
 
 type VertexKeyType string

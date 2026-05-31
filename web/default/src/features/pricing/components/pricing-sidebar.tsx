@@ -159,23 +159,44 @@ export function PricingSidebar(props: PricingSidebarProps) {
   const quotaTypeLabels = getQuotaTypeLabels(t)
   const endpointTypeLabels = getEndpointTypeLabels(t)
 
+  const providerNames = Array.from(
+    new Set(
+      props.models.flatMap((model) =>
+        (model.providers || []).map((provider) => provider.provider_name)
+      )
+    )
+  ).filter(Boolean)
+  const useProviderOptions = providerNames.length > 0
+
   const vendorOptions: FilterOption[] = [
     {
       value: FILTER_ALL,
-      label: t('All Vendors'),
+      label: useProviderOptions ? t('All Providers') : t('All Vendors'),
       count: props.models.length,
     },
-    ...props.vendors
-      .map((vendor) => ({
-        value: vendor.name,
-        label: vendor.name,
-        count: countBy(
-          props.models,
-          (model) => model.vendor_name === vendor.name
-        ),
-        icon: vendor.icon ? getLobeIcon(vendor.icon, 14) : undefined,
-      }))
-      .filter((vendor) => vendor.count > 0),
+    ...(useProviderOptions
+      ? providerNames
+          .map((providerName) => ({
+            value: providerName,
+            label: providerName,
+            count: countBy(props.models, (model) =>
+              (model.providers || []).some(
+                (provider) => provider.provider_name === providerName
+              )
+            ),
+          }))
+          .filter((provider) => provider.count > 0)
+      : props.vendors
+          .map((vendor) => ({
+            value: vendor.name,
+            label: vendor.name,
+            count: countBy(
+              props.models,
+              (model) => model.vendor_name === vendor.name
+            ),
+            icon: vendor.icon ? getLobeIcon(vendor.icon, 14) : undefined,
+          }))
+          .filter((vendor) => vendor.count > 0)),
   ]
 
   const groupOptions: FilterOption[] = [
@@ -279,7 +300,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
           onChange={props.onGroupChange}
         />
         <FilterSection
-          title={t('All Vendors')}
+          title={useProviderOptions ? t('Providers') : t('All Vendors')}
           value={props.vendorFilter}
           options={vendorOptions}
           onChange={props.onVendorChange}

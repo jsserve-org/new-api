@@ -10,9 +10,10 @@ import (
 
 // from songquanpeng/one-api
 const (
-	USD2RMB = 7.3 // 暂定 1 USD = 7.3 RMB
-	USD     = 500 // $0.002 = 1 -> $1 = 500
-	RMB     = USD / USD2RMB
+	USD2RMB               = 7.3 // 暂定 1 USD = 7.3 RMB
+	USD                   = 500 // $0.002 = 1 -> $1 = 500
+	RMB                   = USD / USD2RMB
+	DefaultUnsetModelPrice = 0.4
 )
 
 // modelRatio
@@ -383,9 +384,9 @@ func GetModelPrice(name string, printErr bool) (float64, bool) {
 	}
 
 	if printErr {
-		common.SysError("model price not found: " + name)
+		common.SysError("model price not found, using default price: " + name)
 	}
-	return -1, false
+	return DefaultUnsetModelPrice, true
 }
 
 func UpdateModelRatioByJSONString(jsonStr string) error {

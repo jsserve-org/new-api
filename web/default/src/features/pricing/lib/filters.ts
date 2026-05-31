@@ -39,13 +39,21 @@ export function filterBySearch(
   if (!query) return models
 
   const lowerQuery = query.toLowerCase()
-  return models.filter(
-    (m) =>
+  return models.filter((m) => {
+    const providerMatch = (m.providers || []).some(
+      (provider) =>
+        provider.provider_name?.toLowerCase().includes(lowerQuery) ||
+        provider.provider_type_name?.toLowerCase().includes(lowerQuery)
+    )
+
+    return (
       m.model_name?.toLowerCase().includes(lowerQuery) ||
       m.description?.toLowerCase().includes(lowerQuery) ||
       m.tags?.toLowerCase().includes(lowerQuery) ||
-      m.vendor_name?.toLowerCase().includes(lowerQuery)
-  )
+      m.vendor_name?.toLowerCase().includes(lowerQuery) ||
+      providerMatch
+    )
+  })
 }
 
 /**
@@ -56,7 +64,11 @@ export function filterByVendor(
   vendor: string
 ): PricingModel[] {
   if (vendor === FILTER_ALL) return models
-  return models.filter((m) => m.vendor_name === vendor)
+  return models.filter(
+    (m) =>
+      m.vendor_name === vendor ||
+      (m.providers || []).some((provider) => provider.provider_name === vendor)
+  )
 }
 
 /**

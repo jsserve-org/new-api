@@ -958,6 +958,7 @@ func (channel *Channel) GetSetting() dto.ChannelSettings {
 			_ = channel.Save()    // 保存修改
 		}
 	}
+	setting.ApplyDerivedProxy()
 	return setting
 }
 

@@ -75,7 +75,44 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 	return string(jsonBytes)
 }
 
+func ensureUnsetModelPrices() {
+	common.OptionMapRWMutex.RLock()
+	rawModelPrice := common.Interface2String(common.OptionMap["ModelPrice"])
+	common.OptionMapRWMutex.RUnlock()
+
+	modelPriceMap := make(map[string]float64)
+	if strings.TrimSpace(rawModelPrice) != "" {
+		if err := common.UnmarshalJsonStr(rawModelPrice, &modelPriceMap); err != nil {
+			common.SysError("failed to parse ModelPrice option: " + err.Error())
+			return
+		}
+	}
+
+	changed := false
+	for _, pricing := range model.GetPricing() {
+		if _, ok := modelPriceMap[pricing.ModelName]; ok {
+			continue
+		}
+		modelPriceMap[pricing.ModelName] = ratio_setting.DefaultUnsetModelPrice
+		changed = true
+	}
+	if !changed {
+		return
+	}
+
+	jsonBytes, err := common.Marshal(modelPriceMap)
+	if err != nil {
+		common.SysError("failed to marshal ModelPrice option: " + err.Error())
+		return
+	}
+	if err := model.UpdateOption("ModelPrice", string(jsonBytes)); err != nil {
+		common.SysError("failed to persist ModelPrice option: " + err.Error())
+		return
+	}
+}
+
 func GetOptions(c *gin.Context) {
+	ensureUnsetModelPrices()
 	var options []*model.Option
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()

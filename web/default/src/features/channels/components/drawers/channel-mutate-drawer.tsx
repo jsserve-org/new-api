@@ -1075,13 +1075,18 @@ export function ChannelMutateDrawer({
                         name='name'
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('Name *')}</FormLabel>
+                            <FormLabel>{t('Provider name *')}</FormLabel>
                             <FormControl>
                               <Input
                                 placeholder={t(FIELD_PLACEHOLDERS.NAME)}
                                 {...field}
                               />
                             </FormControl>
+                            <FormDescription>
+                              {t(
+                                'Editable provider text shown in Model Square and provider filters.'
+                              )}
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -3346,9 +3351,50 @@ export function ChannelMutateDrawer({
                             </FormControl>
                             <FormDescription>
                               {t(
-                                'Network proxy for this channel (supports socks5 protocol)'
+                                'Explicit network proxy for this channel (supports http, https, socks5, and socks5h). If set, it overrides OpenVPN-derived proxy settings.'
                               )}
                             </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='openvpn_config'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('OpenVPN Config')}</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder={t(
+                                  'Paste .ovpn content here. If it contains http-proxy or socks-proxy directives, this channel will route requests through that proxy.'
+                                )}
+                                rows={6}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t(
+                                'Importer for OpenVPN config text. New API extracts http-proxy / socks-proxy directives and uses them for this channel.'
+                              )}
+                            </FormDescription>
+                            <div>
+                              <Input
+                                type='file'
+                                accept='.ovpn,.conf,.txt'
+                                onChange={async (event) => {
+                                  const file = event.target.files?.[0]
+                                  if (!file) return
+                                  const text = await file.text()
+                                  form.setValue('openvpn_config', text, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  })
+                                  event.target.value = ''
+                                }}
+                              />
+                            </div>
                             <FormMessage />
                           </FormItem>
                         )}
