@@ -57,6 +57,8 @@ func TestSetupRequestHeaderOpenAIRequestProfiles(t *testing.T) {
 			ctx.Request.Header.Set("Content-Type", "application/json")
 
 			header := http.Header{}
+			header.Set("User-Agent", "new-api-test-client")
+			header.Set("X-Title", "new-api")
 			info := &relaycommon.RelayInfo{
 				ChannelMeta: &relaycommon.ChannelMeta{
 					ChannelType:          constant.ChannelTypeOpenAI,

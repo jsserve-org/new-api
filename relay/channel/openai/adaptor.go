@@ -237,42 +237,40 @@ func applyOpenAIRequestProfileHeaders(header *http.Header, settings dto.ChannelO
 
 	switch profile {
 	case dto.OpenAIRequestProfileCodex:
-		setHeaderIfEmpty(header, "User-Agent", "codex_cli_rs")
-		setHeaderIfEmpty(header, "originator", "codex_cli_rs")
-		setHeaderIfEmpty(header, "X-Title", "codex")
-		setHeaderIfEmpty(header, "X-Source", "codex")
+		setProfileHeader(header, "User-Agent", "codex_cli_rs")
+		setProfileHeader(header, "originator", "codex_cli_rs")
+		setProfileHeader(header, "X-Title", "codex")
+		setProfileHeader(header, "X-Source", "codex")
 	case dto.OpenAIRequestProfileCCSwitch:
-		setHeaderIfEmpty(header, "User-Agent", "claude-code")
-		setHeaderIfEmpty(header, "originator", "claude_code")
-		setHeaderIfEmpty(header, "X-Title", "Claude Code")
-		setHeaderIfEmpty(header, "X-Source", "cc-switch")
+		setProfileHeader(header, "User-Agent", "claude-code")
+		setProfileHeader(header, "originator", "claude_code")
+		setProfileHeader(header, "X-Title", "Claude Code")
+		setProfileHeader(header, "X-Source", "cc-switch")
 	case dto.OpenAIRequestProfileOpenCode:
-		setHeaderIfEmpty(header, "User-Agent", "opencode")
-		setHeaderIfEmpty(header, "HTTP-Referer", "https://opencode.ai/")
-		setHeaderIfEmpty(header, "X-Title", "opencode")
-		setHeaderIfEmpty(header, "X-Source", "opencode")
+		setProfileHeader(header, "User-Agent", "opencode")
+		setProfileHeader(header, "HTTP-Referer", "https://opencode.ai/")
+		setProfileHeader(header, "X-Title", "opencode")
+		setProfileHeader(header, "X-Source", "opencode")
 	case dto.OpenAIRequestProfilePi:
-		setHeaderIfEmpty(header, "User-Agent", "pi-coding-agent")
-		setHeaderIfEmpty(header, "originator", "pi")
-		setHeaderIfEmpty(header, "X-Title", "pi")
-		setHeaderIfEmpty(header, "X-Source", "pi")
+		setProfileHeader(header, "User-Agent", "pi-coding-agent")
+		setProfileHeader(header, "originator", "pi")
+		setProfileHeader(header, "X-Title", "pi")
+		setProfileHeader(header, "X-Source", "pi")
 	case dto.OpenAIRequestProfileOpenClaw:
-		setHeaderIfEmpty(header, "User-Agent", "openclaw")
-		setHeaderIfEmpty(header, "originator", "openclaw")
-		setHeaderIfEmpty(header, "X-Title", "openclaw")
-		setHeaderIfEmpty(header, "X-Source", "openclaw")
+		setProfileHeader(header, "User-Agent", "openclaw")
+		setProfileHeader(header, "originator", "openclaw")
+		setProfileHeader(header, "X-Title", "openclaw")
+		setProfileHeader(header, "X-Source", "openclaw")
 	case dto.OpenAIRequestProfileHermesAgent:
-		setHeaderIfEmpty(header, "User-Agent", "hermes-agent")
-		setHeaderIfEmpty(header, "originator", "hermes_agent")
-		setHeaderIfEmpty(header, "X-Title", "Hermes Agent")
-		setHeaderIfEmpty(header, "X-Source", "hermes-agent")
+		setProfileHeader(header, "User-Agent", "hermes-agent")
+		setProfileHeader(header, "originator", "hermes_agent")
+		setProfileHeader(header, "X-Title", "Hermes Agent")
+		setProfileHeader(header, "X-Source", "hermes-agent")
 	}
 }
 
-func setHeaderIfEmpty(header *http.Header, key string, value string) {
-	if header.Get(key) == "" {
-		header.Set(key, value)
-	}
+func setProfileHeader(header *http.Header, key string, value string) {
+	header.Set(key, value)
 }
 
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
