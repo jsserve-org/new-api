@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -15,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Adaptor struct {
@@ -68,6 +68,9 @@ func shouldAppendClaudeBetaQuery(info *relaycommon.RelayInfo) bool {
 	if info.ChannelOtherSettings.ClaudeBetaQuery {
 		return true
 	}
+	if info.ChannelOtherSettings.OpenAIRequestProfile == dto.OpenAIRequestProfileCCSwitch {
+		return true
+	}
 	return false
 }
 
@@ -90,16 +93,27 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 	}
 	req.Set("anthropic-version", anthropicVersion)
 	CommonClaudeHeadersOperation(c, req, info)
+	applyClaudeRequestProfileHeaders(c, req, info.ChannelOtherSettings.OpenAIRequestProfile)
 	return nil
 }
 
 func applyClaudeRequestProfileHeaders(c *gin.Context, req *http.Header, profile dto.OpenAIRequestProfile) {
 	switch profile {
 	case dto.OpenAIRequestProfileCCSwitch:
-		setClaudeProfileHeader(req, "User-Agent", "claude-code/2.1.158")
-		setClaudeProfileHeader(req, "x-app", "claude-code")
-		setClaudeProfileHeader(req, "x-client-app", "claude-code")
+		setClaudeProfileHeader(req, "Accept", "application/json")
+		setClaudeProfileHeader(req, "User-Agent", "claude-cli/2.1.158 (external, sdk-cli)")
 		setClaudeProfileHeader(req, "X-Claude-Code-Session-Id", claudeCodeSessionID(c))
+		setClaudeProfileHeader(req, "X-Stainless-Arch", "x64")
+		setClaudeProfileHeader(req, "X-Stainless-Lang", "js")
+		setClaudeProfileHeader(req, "X-Stainless-OS", "Linux")
+		setClaudeProfileHeader(req, "X-Stainless-Package-Version", "0.94.0")
+		setClaudeProfileHeader(req, "X-Stainless-Retry-Count", "0")
+		setClaudeProfileHeader(req, "X-Stainless-Runtime", "node")
+		setClaudeProfileHeader(req, "X-Stainless-Runtime-Version", "v24.3.0")
+		setClaudeProfileHeader(req, "X-Stainless-Timeout", "600")
+		setClaudeProfileHeader(req, "anthropic-beta", "claude-code-20250219,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,advisor-tool-2026-03-01")
+		setClaudeProfileHeader(req, "anthropic-dangerous-direct-browser-access", "true")
+		setClaudeProfileHeader(req, "x-app", "cli")
 	case dto.OpenAIRequestProfileOpenCode:
 		setClaudeProfileHeader(req, "User-Agent", "opencode")
 		setClaudeProfileHeader(req, "HTTP-Referer", "https://opencode.ai/")
@@ -121,17 +135,16 @@ func applyClaudeRequestProfileHeaders(c *gin.Context, req *http.Header, profile 
 }
 
 func claudeCodeSessionID(c *gin.Context) string {
-	if c == nil {
-		return "00000000-0000-4000-8000-000000000000"
+	if c != nil {
+		if existing := c.GetString("claude_code_session_id"); existing != "" {
+			return existing
+		}
 	}
-	requestID := c.GetString(common.RequestIdKey)
-	if requestID == "" && c.Request != nil {
-		requestID = c.Request.Header.Get(common.RequestIdKey)
+	sessionID := uuid.NewString()
+	if c != nil {
+		c.Set("claude_code_session_id", sessionID)
 	}
-	if requestID == "" {
-		return "00000000-0000-4000-8000-000000000000"
-	}
-	return requestID
+	return sessionID
 }
 
 func setClaudeProfileHeader(req *http.Header, key string, value string) {

@@ -3,6 +3,7 @@ package claude
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
@@ -16,7 +17,6 @@ func TestSetupRequestHeaderClaudeCodeProfile(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
 	ctx.Request.Header.Set("Content-Type", "application/json")
-	ctx.Request.Header.Set("X-Oneapi-Request-Id", "req-test")
 
 	header := http.Header{}
 	info := &relaycommon.RelayInfo{
@@ -34,19 +34,44 @@ func TestSetupRequestHeaderClaudeCodeProfile(t *testing.T) {
 		t.Fatalf("SetupRequestHeader returned error: %v", err)
 	}
 
-	if got := header.Get("User-Agent"); got != "claude-code/2.1.158" {
-		t.Fatalf("expected claude-code user-agent, got %q", got)
+	if got := header.Get("User-Agent"); got != "claude-cli/2.1.158 (external, sdk-cli)" {
+		t.Fatalf("expected claude cli user-agent, got %q", got)
 	}
-	if got := header.Get("x-client-app"); got != "claude-code" {
-		t.Fatalf("expected x-client-app header, got %q", got)
-	}
-	if got := header.Get("x-app"); got != "claude-code" {
+	if got := header.Get("x-app"); got != "cli" {
 		t.Fatalf("expected x-app header, got %q", got)
 	}
-	if got := header.Get("X-Claude-Code-Session-Id"); got != "req-test" {
-		t.Fatalf("expected session id from request, got %q", got)
+	if got := header.Get("X-Stainless-Lang"); got != "js" {
+		t.Fatalf("expected stainless lang header, got %q", got)
+	}
+	if got := header.Get("anthropic-dangerous-direct-browser-access"); got != "true" {
+		t.Fatalf("expected dangerous direct browser access header, got %q", got)
+	}
+	if got := header.Get("anthropic-beta"); !strings.Contains(got, "claude-code-20250219") {
+		t.Fatalf("expected claude-code beta header, got %q", got)
+	}
+	if got := header.Get("X-Claude-Code-Session-Id"); got == "" {
+		t.Fatal("expected generated session id")
 	}
 	if got := header.Get("x-api-key"); got != "test-key" {
 		t.Fatalf("expected x-api-key, got %q", got)
+	}
+}
+
+func TestGetRequestURLClaudeCodeProfileAppendsBetaQuery(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelBaseUrl: "https://agentrouter.org",
+			ChannelOtherSettings: dto.ChannelOtherSettings{
+				OpenAIRequestProfile: dto.OpenAIRequestProfileCCSwitch,
+			},
+		},
+	}
+
+	got, err := (&Adaptor{}).GetRequestURL(info)
+	if err != nil {
+		t.Fatalf("GetRequestURL returned error: %v", err)
+	}
+	if got != "https://agentrouter.org/v1/messages?beta=true" {
+		t.Fatalf("unexpected request URL: %q", got)
 	}
 }
