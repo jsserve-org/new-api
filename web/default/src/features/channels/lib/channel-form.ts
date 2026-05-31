@@ -83,9 +83,7 @@ function isGitHubToken(value: string | undefined): boolean {
   if (!value) return true // empty is fine during initial form fill
   const trimmed = value.trim()
   return (
-    trimmed.startsWith('ghp_') ||
     trimmed.startsWith('gho_') ||
-    trimmed.startsWith('github_pat_') ||
     trimmed.startsWith('ghu_') ||
     trimmed.startsWith('tid=') // raw copilot token
   )
@@ -251,7 +249,7 @@ export const channelFormSchema = z
         addRequiredIssue(
           ctx,
           'key',
-          'Copilot key must be a GitHub personal access token (starts with ghp_, gho_, github_pat_, ghu_) or a raw Copilot token (tid=)'
+          'Copilot key must be generated via GitHub device-code authorization (gho_/ghu_) or be a raw Copilot token (tid=)'
         )
       }
     }
