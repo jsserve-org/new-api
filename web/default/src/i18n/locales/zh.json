@@ -205,6 +205,7 @@
     "Additional metered capability": "附加计费能力",
     "Adds opencode-style request headers to OpenAI upstream requests": "为 OpenAI 上游请求添加 opencode 风格请求头",
     "Adds selected app-style request headers to OpenAI upstream requests": "为 OpenAI 上游请求添加所选应用风格的请求头",
+    "Adds selected app-style request headers to upstream requests": "为上游请求添加所选应用风格的请求头",
     "Adjust filters, then search to refresh the logs.": "调整筛选条件，然后搜索以刷新日志。",
     "Adjust Quota": "调整额度",
     "Adjust response formatting, prompt behavior, proxy, and upstream automation.": "调整响应格式、提示词行为、代理和上游自动化。",

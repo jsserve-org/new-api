@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -81,6 +82,7 @@ func CommonClaudeHeadersOperation(c *gin.Context, req *http.Header, info *relayc
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
+	applyClaudeRequestProfileHeaders(c, req, info.ChannelOtherSettings.OpenAIRequestProfile)
 	req.Set("x-api-key", info.ApiKey)
 	anthropicVersion := c.Request.Header.Get("anthropic-version")
 	if anthropicVersion == "" {
@@ -89,6 +91,51 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 	req.Set("anthropic-version", anthropicVersion)
 	CommonClaudeHeadersOperation(c, req, info)
 	return nil
+}
+
+func applyClaudeRequestProfileHeaders(c *gin.Context, req *http.Header, profile dto.OpenAIRequestProfile) {
+	switch profile {
+	case dto.OpenAIRequestProfileCCSwitch:
+		setClaudeProfileHeader(req, "User-Agent", "claude-code/2.1.158")
+		setClaudeProfileHeader(req, "x-app", "claude-code")
+		setClaudeProfileHeader(req, "x-client-app", "claude-code")
+		setClaudeProfileHeader(req, "X-Claude-Code-Session-Id", claudeCodeSessionID(c))
+	case dto.OpenAIRequestProfileOpenCode:
+		setClaudeProfileHeader(req, "User-Agent", "opencode")
+		setClaudeProfileHeader(req, "HTTP-Referer", "https://opencode.ai/")
+		setClaudeProfileHeader(req, "X-Title", "opencode")
+		setClaudeProfileHeader(req, "X-Source", "opencode")
+	case dto.OpenAIRequestProfileCodex:
+		setClaudeProfileHeader(req, "User-Agent", "codex_cli_rs")
+		setClaudeProfileHeader(req, "originator", "codex_cli_rs")
+	case dto.OpenAIRequestProfilePi:
+		setClaudeProfileHeader(req, "User-Agent", "pi-coding-agent")
+		setClaudeProfileHeader(req, "originator", "pi")
+	case dto.OpenAIRequestProfileOpenClaw:
+		setClaudeProfileHeader(req, "User-Agent", "openclaw")
+		setClaudeProfileHeader(req, "originator", "openclaw")
+	case dto.OpenAIRequestProfileHermesAgent:
+		setClaudeProfileHeader(req, "User-Agent", "hermes-agent")
+		setClaudeProfileHeader(req, "originator", "hermes_agent")
+	}
+}
+
+func claudeCodeSessionID(c *gin.Context) string {
+	if c == nil {
+		return "00000000-0000-4000-8000-000000000000"
+	}
+	requestID := c.GetString(common.RequestIdKey)
+	if requestID == "" && c.Request != nil {
+		requestID = c.Request.Header.Get(common.RequestIdKey)
+	}
+	if requestID == "" {
+		return "00000000-0000-4000-8000-000000000000"
+	}
+	return requestID
+}
+
+func setClaudeProfileHeader(req *http.Header, key string, value string) {
+	req.Set(key, value)
 }
 
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {

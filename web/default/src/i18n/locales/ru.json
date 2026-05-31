@@ -205,6 +205,7 @@
     "Additional metered capability": "Дополнительная зарезервированная ёмкость (metered)",
     "Adds opencode-style request headers to OpenAI upstream requests": "Добавляет заголовки в стиле opencode к вышестоящим запросам OpenAI",
     "Adds selected app-style request headers to OpenAI upstream requests": "Добавляет к вышестоящим запросам OpenAI заголовки в стиле выбранного приложения",
+    "Adds selected app-style request headers to upstream requests": "Добавляет к вышестоящим запросам заголовки в стиле выбранного приложения",
     "Adjust filters, then search to refresh the logs.": "Настройте фильтры, затем выполните поиск, чтобы обновить журналы.",
     "Adjust Quota": "Изменить квоту",
     "Adjust response formatting, prompt behavior, proxy, and upstream automation.": "Настройте форматирование ответов, поведение промпта, прокси и автоматизацию upstream.",

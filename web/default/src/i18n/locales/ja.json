@@ -205,6 +205,7 @@
     "Additional metered capability": "追加の従量制機能",
     "Adds opencode-style request headers to OpenAI upstream requests": "OpenAI 上流リクエストに opencode 風のヘッダーを追加します",
     "Adds selected app-style request headers to OpenAI upstream requests": "OpenAI 上流リクエストに選択したアプリ風のヘッダーを追加します",
+    "Adds selected app-style request headers to upstream requests": "上流リクエストに選択したアプリ風のヘッダーを追加します",
     "Adjust filters, then search to refresh the logs.": "フィルターを調整してから検索し、ログを更新します。",
     "Adjust Quota": "クォータを調整",
     "Adjust response formatting, prompt behavior, proxy, and upstream automation.": "レスポンス形式、プロンプト動作、プロキシ、上流自動化を調整します。",

@@ -3006,7 +3006,7 @@ export function ChannelMutateDrawer({
                                         </FormLabel>
                                         <FormDescription>
                                           {t(
-                                            'Adds selected app-style request headers to OpenAI upstream requests'
+                                            'Adds selected app-style request headers to upstream requests'
                                           )}
                                         </FormDescription>
                                       </div>
@@ -3102,6 +3102,81 @@ export function ChannelMutateDrawer({
 
                             {currentType === 14 && (
                               <>
+                                <FormField
+                                  control={form.control}
+                                  name='openai_request_profile'
+                                  render={({ field }) => (
+                                    <FormItem className='grid gap-2 px-4 py-3 sm:grid-cols-[1fr_220px] sm:items-center'>
+                                      <div className='space-y-0.5'>
+                                        <FormLabel className='text-sm'>
+                                          {t('Make provider request look like')}
+                                        </FormLabel>
+                                        <FormDescription>
+                                          {t(
+                                            'Adds selected app-style request headers to upstream requests'
+                                          )}
+                                        </FormDescription>
+                                      </div>
+                                      <Select
+                                        value={field.value || ''}
+                                        onValueChange={field.onChange}
+                                        items={[
+                                          {
+                                            value: '',
+                                            label: t('Default'),
+                                          },
+                                          { value: 'codex', label: 'Codex' },
+                                          {
+                                            value: 'cc_switch',
+                                            label: 'CC Switch',
+                                          },
+                                          {
+                                            value: 'opencode',
+                                            label: 'opencode',
+                                          },
+                                          { value: 'pi', label: 'pi' },
+                                          {
+                                            value: 'openclaw',
+                                            label: 'OpenClaw',
+                                          },
+                                          {
+                                            value: 'hermes_agent',
+                                            label: 'Hermes Agent',
+                                          },
+                                        ]}
+                                      >
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent alignItemWithTrigger={false}>
+                                          <SelectGroup>
+                                            <SelectItem value=''>
+                                              {t('Default')}
+                                            </SelectItem>
+                                            <SelectItem value='codex'>
+                                              Codex
+                                            </SelectItem>
+                                            <SelectItem value='cc_switch'>
+                                              CC Switch
+                                            </SelectItem>
+                                            <SelectItem value='opencode'>
+                                              opencode
+                                            </SelectItem>
+                                            <SelectItem value='pi'>pi</SelectItem>
+                                            <SelectItem value='openclaw'>
+                                              OpenClaw
+                                            </SelectItem>
+                                            <SelectItem value='hermes_agent'>
+                                              Hermes Agent
+                                            </SelectItem>
+                                          </SelectGroup>
+                                        </SelectContent>
+                                      </Select>
+                                    </FormItem>
+                                  )}
+                                />
                                 <FormField
                                   control={form.control}
                                   name='allow_inference_geo'

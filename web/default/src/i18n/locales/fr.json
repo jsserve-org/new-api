@@ -205,6 +205,7 @@
     "Additional metered capability": "Fonctionnalité supplémentaire facturée à l’usage",
     "Adds opencode-style request headers to OpenAI upstream requests": "Ajoute des en-têtes de requête de style opencode aux requêtes amont OpenAI",
     "Adds selected app-style request headers to OpenAI upstream requests": "Ajoute les en-têtes de requête du style d’application sélectionné aux requêtes amont OpenAI",
+    "Adds selected app-style request headers to upstream requests": "Ajoute les en-têtes de requête du style d’application sélectionné aux requêtes amont",
     "Adjust filters, then search to refresh the logs.": "Ajustez les filtres, puis lancez la recherche pour actualiser les journaux.",
     "Adjust Quota": "Ajuster le quota",
     "Adjust response formatting, prompt behavior, proxy, and upstream automation.": "Ajustez le formatage des réponses, le comportement des prompts, le proxy et l’automatisation amont.",

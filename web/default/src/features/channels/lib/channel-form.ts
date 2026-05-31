@@ -546,19 +546,15 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
 
   // Field passthrough controls:
   // - OpenAI (type 1) and Anthropic (type 14): allow_service_tier
-  // - OpenAI only: disable_store, allow_safety_identifier, openai_request_profile
+  // - OpenAI and Anthropic: openai_request_profile (request profile headers)
+  // - OpenAI only: disable_store, allow_safety_identifier
   if (formData.type === 1 || formData.type === 14) {
     settingsObj.allow_service_tier = formData.allow_service_tier === true
   } else if ('allow_service_tier' in settingsObj) {
     delete settingsObj.allow_service_tier
   }
 
-  if (formData.type === 1) {
-    settingsObj.disable_store = formData.disable_store === true
-    settingsObj.allow_safety_identifier =
-      formData.allow_safety_identifier === true
-    settingsObj.allow_include_obfuscation =
-      formData.allow_include_obfuscation === true
+  if (formData.type === 1 || formData.type === 14) {
     if (formData.openai_request_profile) {
       settingsObj.openai_request_profile = formData.openai_request_profile
     } else if ('openai_request_profile' in settingsObj) {
@@ -567,6 +563,14 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
     if ('openai_like_opencode' in settingsObj) {
       delete settingsObj.openai_like_opencode
     }
+  }
+
+  if (formData.type === 1) {
+    settingsObj.disable_store = formData.disable_store === true
+    settingsObj.allow_safety_identifier =
+      formData.allow_safety_identifier === true
+    settingsObj.allow_include_obfuscation =
+      formData.allow_include_obfuscation === true
     settingsObj.allow_inference_geo = formData.allow_inference_geo === true
   } else {
     if ('disable_store' in settingsObj) delete settingsObj.disable_store
@@ -576,7 +580,7 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
       delete settingsObj.allow_include_obfuscation
     if ('openai_like_opencode' in settingsObj)
       delete settingsObj.openai_like_opencode
-    if ('openai_request_profile' in settingsObj)
+    if (formData.type !== 14 && 'openai_request_profile' in settingsObj)
       delete settingsObj.openai_request_profile
     if (formData.type !== 14 && 'allow_inference_geo' in settingsObj)
       delete settingsObj.allow_inference_geo
