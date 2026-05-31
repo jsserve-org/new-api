@@ -11,41 +11,77 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestSetupRequestHeaderOpenAILikeOpenCode(t *testing.T) {
+func TestSetupRequestHeaderOpenAIRequestProfiles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
-	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	ctx.Request.Header.Set("Content-Type", "application/json")
 
-	header := http.Header{}
-	info := &relaycommon.RelayInfo{
-		ChannelMeta: &relaycommon.ChannelMeta{
-			ChannelType: constant.ChannelTypeOpenAI,
-			ApiKey:      "test-key",
-			ChannelOtherSettings: dto.ChannelOtherSettings{
+	tests := []struct {
+		name      string
+		settings  dto.ChannelOtherSettings
+		wantUA    string
+		wantTitle string
+		wantSrc   string
+	}{
+		{
+			name: "legacy opencode toggle",
+			settings: dto.ChannelOtherSettings{
 				OpenAILikeOpenCode: true,
 			},
+			wantUA:    "opencode",
+			wantTitle: "opencode",
+			wantSrc:   "opencode",
+		},
+		{
+			name: "codex profile",
+			settings: dto.ChannelOtherSettings{
+				OpenAIRequestProfile: dto.OpenAIRequestProfileCodex,
+			},
+			wantUA:    "codex_cli_rs",
+			wantTitle: "codex",
+			wantSrc:   "codex",
+		},
+		{
+			name: "hermes agent profile",
+			settings: dto.ChannelOtherSettings{
+				OpenAIRequestProfile: dto.OpenAIRequestProfileHermesAgent,
+			},
+			wantUA:    "hermes-agent",
+			wantTitle: "Hermes Agent",
+			wantSrc:   "hermes-agent",
 		},
 	}
 
-	adaptor := &Adaptor{}
-	if err := adaptor.SetupRequestHeader(ctx, &header, info); err != nil {
-		t.Fatalf("SetupRequestHeader returned error: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			ctx.Request.Header.Set("Content-Type", "application/json")
 
-	if got := header.Get("User-Agent"); got != "opencode" {
-		t.Fatalf("expected opencode user-agent, got %q", got)
-	}
-	if got := header.Get("HTTP-Referer"); got != "https://opencode.ai/" {
-		t.Fatalf("expected opencode referer, got %q", got)
-	}
-	if got := header.Get("X-Title"); got != "opencode" {
-		t.Fatalf("expected opencode title, got %q", got)
-	}
-	if got := header.Get("X-Source"); got != "opencode" {
-		t.Fatalf("expected opencode source, got %q", got)
-	}
-	if got := header.Get("Authorization"); got != "Bearer test-key" {
-		t.Fatalf("expected authorization header, got %q", got)
+			header := http.Header{}
+			info := &relaycommon.RelayInfo{
+				ChannelMeta: &relaycommon.ChannelMeta{
+					ChannelType:          constant.ChannelTypeOpenAI,
+					ApiKey:               "test-key",
+					ChannelOtherSettings: tt.settings,
+				},
+			}
+
+			adaptor := &Adaptor{}
+			if err := adaptor.SetupRequestHeader(ctx, &header, info); err != nil {
+				t.Fatalf("SetupRequestHeader returned error: %v", err)
+			}
+
+			if got := header.Get("User-Agent"); got != tt.wantUA {
+				t.Fatalf("expected user-agent %q, got %q", tt.wantUA, got)
+			}
+			if got := header.Get("X-Title"); got != tt.wantTitle {
+				t.Fatalf("expected x-title %q, got %q", tt.wantTitle, got)
+			}
+			if got := header.Get("X-Source"); got != tt.wantSrc {
+				t.Fatalf("expected x-source %q, got %q", tt.wantSrc, got)
+			}
+			if got := header.Get("Authorization"); got != "Bearer test-key" {
+				t.Fatalf("expected authorization header, got %q", got)
+			}
+		})
 	}
 }

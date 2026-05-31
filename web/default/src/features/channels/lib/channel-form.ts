@@ -204,7 +204,9 @@ export const channelFormSchema = z
     disable_store: z.boolean().optional(), // OpenAI only
     allow_safety_identifier: z.boolean().optional(), // OpenAI only
     allow_include_obfuscation: z.boolean().optional(), // OpenAI: include usage obfuscation
-    openai_like_opencode: z.boolean().optional(), // OpenAI: opencode-style headers
+    openai_request_profile: z
+      .enum(['', 'codex', 'cc_switch', 'opencode', 'pi', 'openclaw', 'hermes_agent'])
+      .optional(), // OpenAI: request profile headers
     allow_inference_geo: z.boolean().optional(), // OpenAI/Anthropic: inference geography
     allow_speed: z.boolean().optional(), // Anthropic: speed mode control
     claude_beta_query: z.boolean().optional(), // Anthropic: beta query passthrough
@@ -333,7 +335,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   disable_store: false,
   allow_safety_identifier: false,
   allow_include_obfuscation: false,
-  openai_like_opencode: false,
+  openai_request_profile: '',
   allow_inference_geo: false,
   allow_speed: false,
   claude_beta_query: false,
@@ -388,7 +390,14 @@ export function transformChannelToFormDefaults(
   let disableStore = false
   let allowSafetyIdentifier = false
   let allowIncludeObfuscation = false
-  let openaiLikeOpenCode = false
+  let openaiRequestProfile:
+    | ''
+    | 'codex'
+    | 'cc_switch'
+    | 'opencode'
+    | 'pi'
+    | 'openclaw'
+    | 'hermes_agent' = ''
   let allowInferenceGeo = false
   let allowSpeed = false
   let claudeBetaQuery = false
@@ -407,7 +416,10 @@ export function transformChannelToFormDefaults(
       disableStore = parsed.disable_store === true
       allowSafetyIdentifier = parsed.allow_safety_identifier === true
       allowIncludeObfuscation = parsed.allow_include_obfuscation === true
-      openaiLikeOpenCode = parsed.openai_like_opencode === true
+      openaiRequestProfile = parsed.openai_request_profile || ''
+      if (!openaiRequestProfile && parsed.openai_like_opencode === true) {
+        openaiRequestProfile = 'opencode'
+      }
       allowInferenceGeo = parsed.allow_inference_geo === true
       allowSpeed = parsed.allow_speed === true
       claudeBetaQuery = parsed.claude_beta_query === true
@@ -462,7 +474,7 @@ export function transformChannelToFormDefaults(
     allow_service_tier: allowServiceTier,
     disable_store: disableStore,
     allow_include_obfuscation: allowIncludeObfuscation,
-    openai_like_opencode: openaiLikeOpenCode,
+    openai_request_profile: openaiRequestProfile,
     allow_inference_geo: allowInferenceGeo,
     allow_speed: allowSpeed,
     claude_beta_query: claudeBetaQuery,
@@ -534,7 +546,7 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
 
   // Field passthrough controls:
   // - OpenAI (type 1) and Anthropic (type 14): allow_service_tier
-  // - OpenAI only: disable_store, allow_safety_identifier, openai_like_opencode
+  // - OpenAI only: disable_store, allow_safety_identifier, openai_request_profile
   if (formData.type === 1 || formData.type === 14) {
     settingsObj.allow_service_tier = formData.allow_service_tier === true
   } else if ('allow_service_tier' in settingsObj) {
@@ -547,7 +559,14 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
       formData.allow_safety_identifier === true
     settingsObj.allow_include_obfuscation =
       formData.allow_include_obfuscation === true
-    settingsObj.openai_like_opencode = formData.openai_like_opencode === true
+    if (formData.openai_request_profile) {
+      settingsObj.openai_request_profile = formData.openai_request_profile
+    } else if ('openai_request_profile' in settingsObj) {
+      delete settingsObj.openai_request_profile
+    }
+    if ('openai_like_opencode' in settingsObj) {
+      delete settingsObj.openai_like_opencode
+    }
     settingsObj.allow_inference_geo = formData.allow_inference_geo === true
   } else {
     if ('disable_store' in settingsObj) delete settingsObj.disable_store
@@ -557,6 +576,8 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
       delete settingsObj.allow_include_obfuscation
     if ('openai_like_opencode' in settingsObj)
       delete settingsObj.openai_like_opencode
+    if ('openai_request_profile' in settingsObj)
+      delete settingsObj.openai_request_profile
     if (formData.type !== 14 && 'allow_inference_geo' in settingsObj)
       delete settingsObj.allow_inference_geo
   }

@@ -98,6 +98,14 @@ export interface ChannelOtherSettings {
   allow_safety_identifier?: boolean
   allow_include_obfuscation?: boolean
   openai_like_opencode?: boolean
+  openai_request_profile?:
+    | ''
+    | 'codex'
+    | 'cc_switch'
+    | 'opencode'
+    | 'pi'
+    | 'openclaw'
+    | 'hermes_agent'
   allow_inference_geo?: boolean
   allow_speed?: boolean
   claude_beta_query?: boolean
