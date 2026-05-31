@@ -2,7 +2,6 @@ package copilot
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -10,11 +9,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
@@ -50,7 +51,19 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	return a.openaiAdaptor.GetRequestURL(info)
+	requestURLPath := info.RequestURLPath
+	if (info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini) &&
+		info.RelayMode != relayconstant.RelayModeResponses &&
+		info.RelayMode != relayconstant.RelayModeResponsesCompact {
+		requestURLPath = "/chat/completions"
+	}
+
+	// GitHub Copilot's OpenAI-compatible API does not use the /v1 prefix.
+	requestURLPath = strings.TrimPrefix(requestURLPath, "/v1")
+	if requestURLPath == "" {
+		requestURLPath = "/"
+	}
+	return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, requestURLPath, info.ChannelType), nil
 }
 
 func (a *Adaptor) GetModelList() []string {
@@ -104,7 +117,7 @@ func exchangeGitHubToken(ctx context.Context, githubToken string) (string, error
 	}
 
 	var tokenResp copilotTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+	if err := common.DecodeJson(resp.Body, &tokenResp); err != nil {
 		return "", err
 	}
 

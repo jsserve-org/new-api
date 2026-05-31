@@ -181,6 +181,9 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 	if info.ChannelType == constant.ChannelTypeOpenAI && "" != info.Organization {
 		header.Set("OpenAI-Organization", info.Organization)
 	}
+	if info.ChannelType == constant.ChannelTypeOpenAI && info.ChannelOtherSettings.OpenAILikeOpenCode {
+		setOpenCodeStyleHeaders(header)
+	}
 	// 检查 Header Override 是否已设置 Authorization，如果已设置则跳过默认设置
 	// 这样可以避免在 Header Override 应用时被覆盖（虽然 Header Override 会在之后应用，但这里作为额外保护）
 	hasAuthOverride := false
@@ -224,6 +227,21 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 		}
 	}
 	return nil
+}
+
+func setOpenCodeStyleHeaders(header *http.Header) {
+	if header.Get("User-Agent") == "" {
+		header.Set("User-Agent", "opencode")
+	}
+	if header.Get("HTTP-Referer") == "" {
+		header.Set("HTTP-Referer", "https://opencode.ai/")
+	}
+	if header.Get("X-Title") == "" {
+		header.Set("X-Title", "opencode")
+	}
+	if header.Get("X-Source") == "" {
+		header.Set("X-Source", "opencode")
+	}
 }
 
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {

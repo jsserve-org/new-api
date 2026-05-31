@@ -2997,6 +2997,33 @@ export function ChannelMutateDrawer({
 
                                 <FormField
                                   control={form.control}
+                                  name='openai_like_opencode'
+                                  render={({ field }) => (
+                                    <FormItem className='flex items-center justify-between gap-3 px-4 py-3'>
+                                      <div className='space-y-0.5'>
+                                        <FormLabel className='text-sm'>
+                                          {t(
+                                            'Make provider request look like opencode'
+                                          )}
+                                        </FormLabel>
+                                        <FormDescription>
+                                          {t(
+                                            'Adds opencode-style request headers to OpenAI upstream requests'
+                                          )}
+                                        </FormDescription>
+                                      </div>
+                                      <FormControl>
+                                        <Switch
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
                                   name='allow_inference_geo'
                                   render={({ field }) => (
                                     <FormItem className='flex items-center justify-between gap-3 px-4 py-3'>
