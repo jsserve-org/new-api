@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/rand"
 	"sort"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -15,6 +16,7 @@ import (
 )
 
 const AutoModelName = "auto"
+const AutoModelPrefix = "auto-"
 
 type RetryParam struct {
 	Ctx           *gin.Context
@@ -52,11 +54,35 @@ func (p *RetryParam) ResetRetryNextTry() {
 }
 
 func isAutoModelName(modelName string) bool {
-	return modelName == AutoModelName
+	return modelName == AutoModelName || strings.HasPrefix(modelName, AutoModelPrefix)
 }
 
-func allowedAutoModel(candidate string, allowed map[string]bool) bool {
-	if candidate == "" || candidate == AutoModelName {
+func IsAutoRoutingModel(modelName string) bool {
+	return isAutoModelName(modelName)
+}
+
+func getAutoRouteKeyword(modelName string) string {
+	if !strings.HasPrefix(modelName, AutoModelPrefix) {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(strings.TrimPrefix(modelName, AutoModelPrefix)))
+}
+
+func matchesAutoRoute(candidate string, routeModel string) bool {
+	keyword := getAutoRouteKeyword(routeModel)
+	if keyword == "" {
+		return true
+	}
+	candidate = strings.ToLower(strings.TrimSpace(candidate))
+	formatted := strings.ToLower(strings.TrimSpace(ratio_setting.FormatMatchingModelName(candidate)))
+	return strings.Contains(candidate, keyword) || strings.Contains(formatted, keyword)
+}
+
+func allowedAutoModel(candidate string, allowed map[string]bool, routeModel string) bool {
+	if candidate == "" || isAutoModelName(candidate) {
+		return false
+	}
+	if !matchesAutoRoute(candidate, routeModel) {
 		return false
 	}
 	if len(allowed) == 0 {
@@ -72,11 +98,15 @@ func allowedAutoModel(candidate string, allowed map[string]bool) bool {
 	return ok
 }
 
-func getAutoCandidateModels(group string, allowed map[string]bool) []string {
+func getAutoCandidateModels(group string, allowed map[string]bool, routeModel string) []string {
 	models := model.GetGroupEnabledModels(group)
+	if routeModel != AutoModelName && !isAutoModelName(routeModel) {
+		return []string{}
+	}
+	
 	candidates := make([]string, 0, len(models))
 	for _, modelName := range models {
-		if allowedAutoModel(modelName, allowed) && !common.StringsContains(candidates, modelName) {
+		if allowedAutoModel(modelName, allowed, routeModel) && !common.StringsContains(candidates, modelName) {
 			candidates = append(candidates, modelName)
 		}
 	}
@@ -87,8 +117,8 @@ func getAutoCandidateModels(group string, allowed map[string]bool) []string {
 	return candidates
 }
 
-func getRandomSatisfiedChannelForAnyModel(group string, allowed map[string]bool, retry int) (*model.Channel, string, error) {
-	candidates := getAutoCandidateModels(group, allowed)
+func getRandomSatisfiedChannelForAnyModel(group string, allowed map[string]bool, routeModel string, retry int) (*model.Channel, string, error) {
+	candidates := getAutoCandidateModels(group, allowed, routeModel)
 	for _, candidate := range candidates {
 		channel, err := model.GetRandomSatisfiedChannel(group, candidate, retry)
 		if err != nil {
@@ -173,7 +203,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 
 			selectedModel := param.ModelName
 			if isAutoModelName(param.ModelName) {
-				channel, selectedModel, err = getRandomSatisfiedChannelForAnyModel(autoGroup, param.AllowedModels, priorityRetry)
+				channel, selectedModel, err = getRandomSatisfiedChannelForAnyModel(autoGroup, param.AllowedModels, param.ModelName, priorityRetry)
 				if err != nil {
 					return nil, selectGroup, err
 				}
@@ -222,7 +252,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	} else {
 		if isAutoModelName(param.ModelName) {
 			selectedModel := ""
-			channel, selectedModel, err = getRandomSatisfiedChannelForAnyModel(param.TokenGroup, param.AllowedModels, param.GetRetry())
+			channel, selectedModel, err = getRandomSatisfiedChannelForAnyModel(param.TokenGroup, param.AllowedModels, param.ModelName, param.GetRetry())
 			if err != nil {
 				return nil, param.TokenGroup, err
 			}

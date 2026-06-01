@@ -69,7 +69,7 @@ func Distribute() func(c *gin.Context) {
 				if !ok {
 					tokenModelLimit = map[string]bool{}
 				}
-				if modelRequest.Model != service.AutoModelName {
+				if !service.IsAutoRoutingModel(modelRequest.Model) {
 					matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
 					if _, ok := tokenModelLimit[matchName]; !ok {
 						abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
@@ -103,7 +103,7 @@ func Distribute() func(c *gin.Context) {
 					}
 				}
 
-				if modelRequest.Model != service.AutoModelName {
+				if !service.IsAutoRoutingModel(modelRequest.Model) {
 					if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
 						preferred, err := model.CacheGetChannel(preferredChannelID)
 						if err == nil && preferred != nil {
@@ -142,7 +142,7 @@ func Distribute() func(c *gin.Context) {
 						Retry:         common.GetPointer(0),
 					}
 					channel, selectGroup, err = service.CacheGetRandomSatisfiedChannel(retryParam)
-					if modelRequest.Model == service.AutoModelName && retryParam.ModelName != service.AutoModelName {
+					if service.IsAutoRoutingModel(modelRequest.Model) && retryParam.ModelName != modelRequest.Model {
 						modelRequest.Model = retryParam.ModelName
 					}
 					if err != nil {

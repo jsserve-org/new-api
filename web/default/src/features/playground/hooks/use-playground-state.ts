@@ -16,15 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { nanoid } from 'nanoid'
 import { DEFAULT_CONFIG, DEFAULT_PARAMETER_ENABLED } from '../constants'
 import {
   loadConfig,
   saveConfig,
   loadParameterEnabled,
   saveParameterEnabled,
-  loadMessages,
   saveMessages,
+  loadChats,
+  saveChats,
+  loadActiveChatId,
+  saveActiveChatId,
 } from '../lib'
 import type {
   Message,
@@ -32,13 +36,59 @@ import type {
   ParameterEnabled,
   ModelOption,
   GroupOption,
+  ChatSession,
 } from '../types'
+
+const DEFAULT_CHAT_TITLE = 'New Chat'
+
+function createEmptyChat(): ChatSession {
+  const now = Date.now()
+  return {
+    id: nanoid(),
+    title: DEFAULT_CHAT_TITLE,
+    createdAt: now,
+    updatedAt: now,
+    messages: [],
+  }
+}
+
+function getChatTitle(messages: Message[]): string {
+  const firstUserMessage = messages.find((message) => message.from === 'user')
+  const rawTitle = firstUserMessage?.versions?.[0]?.content?.trim()
+  if (!rawTitle) return DEFAULT_CHAT_TITLE
+  return rawTitle.replace(/\s+/g, ' ').slice(0, 48)
+}
+
+function loadInitialChatState(): {
+  chats: ChatSession[]
+  activeChatId: string
+} {
+  const chats = loadChats()
+  const savedActiveChatId = loadActiveChatId()
+
+  if (chats.length > 0) {
+    return {
+      chats,
+      activeChatId:
+        savedActiveChatId && chats.some((chat) => chat.id === savedActiveChatId)
+          ? savedActiveChatId
+          : chats[0].id,
+    }
+  }
+
+  const fallbackChat = createEmptyChat()
+  saveChats([fallbackChat])
+  saveActiveChatId(fallbackChat.id)
+  return {
+    chats: [fallbackChat],
+    activeChatId: fallbackChat.id,
+  }
+}
 
 /**
  * Main state management hook for playground
  */
 export function usePlaygroundState() {
-  // Load initial state from localStorage
   const [config, setConfig] = useState<PlaygroundConfig>(() => {
     const savedConfig = loadConfig()
     return { ...DEFAULT_CONFIG, ...savedConfig }
@@ -51,14 +101,38 @@ export function usePlaygroundState() {
     }
   )
 
-  const [messages, setMessages] = useState<Message[]>(() => {
-    return loadMessages() || []
-  })
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>(
+    () => loadInitialChatState().chats
+  )
+
+  const [activeChatId, setActiveChatId] = useState<string>(
+    () => loadInitialChatState().activeChatId
+  )
 
   const [models, setModels] = useState<ModelOption[]>([])
   const [groups, setGroups] = useState<GroupOption[]>([])
+  const activeChatIdRef = useRef(activeChatId)
 
-  // Update config with automatic save
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId
+    saveActiveChatId(activeChatId)
+  }, [activeChatId])
+
+  useEffect(() => {
+    saveChats(chatSessions)
+    const selectedChat =
+      chatSessions.find((chat) => chat.id === activeChatId) ?? chatSessions[0]
+    saveMessages(selectedChat?.messages ?? [])
+  }, [activeChatId, chatSessions])
+
+  const activeChat = useMemo(() => {
+    return (
+      chatSessions.find((chat) => chat.id === activeChatId) ?? chatSessions[0]
+    )
+  }, [chatSessions, activeChatId])
+
+  const messages = activeChat?.messages ?? []
+
   const updateConfig = useCallback(
     <K extends keyof PlaygroundConfig>(key: K, value: PlaygroundConfig[K]) => {
       setConfig((prev) => {
@@ -70,7 +144,6 @@ export function usePlaygroundState() {
     []
   )
 
-  // Update parameter enabled with automatic save
   const updateParameterEnabled = useCallback(
     (key: keyof ParameterEnabled, value: boolean) => {
       setParameterEnabled((prev) => {
@@ -82,25 +155,63 @@ export function usePlaygroundState() {
     []
   )
 
-  // Update messages with automatic save
   const updateMessages = useCallback(
     (updater: Message[] | ((prev: Message[]) => Message[])) => {
-      setMessages((prev) => {
-        const newMessages =
-          typeof updater === 'function' ? updater(prev) : updater
-        saveMessages(newMessages)
-        return newMessages
+      setChatSessions((prev) => {
+        const nextChats = prev.map((chat) => {
+          if (chat.id !== activeChatIdRef.current) return chat
+          const nextMessages =
+            typeof updater === 'function' ? updater(chat.messages) : updater
+          return {
+            ...chat,
+            messages: nextMessages,
+            updatedAt: Date.now(),
+            title: getChatTitle(nextMessages),
+          }
+        })
+
+        return nextChats.sort((a, b) => b.updatedAt - a.updatedAt)
       })
     },
     []
   )
 
-  // Clear all messages
+  const createChat = useCallback(() => {
+    const newChat = createEmptyChat()
+    setChatSessions((prev) => [newChat, ...prev])
+    setActiveChatId(newChat.id)
+  }, [])
+
+  const selectChat = useCallback(
+    (chatId: string) => {
+      if (!chatSessions.some((chat) => chat.id === chatId)) return
+      setActiveChatId(chatId)
+    },
+    [chatSessions]
+  )
+
+  const deleteChat = useCallback(
+    (chatId: string) => {
+      const remainingChats = chatSessions.filter((chat) => chat.id !== chatId)
+      if (remainingChats.length === 0) {
+        const fallbackChat = createEmptyChat()
+        setChatSessions([fallbackChat])
+        setActiveChatId(fallbackChat.id)
+        return
+      }
+
+      setChatSessions(remainingChats)
+      if (activeChatId === chatId) {
+        setActiveChatId(remainingChats[0].id)
+      }
+    },
+    [activeChatId, chatSessions]
+  )
+
   const clearMessages = useCallback(() => {
     updateMessages([])
   }, [updateMessages])
 
-  // Reset config to defaults
   const resetConfig = useCallback(() => {
     setConfig(DEFAULT_CONFIG)
     setParameterEnabled(DEFAULT_PARAMETER_ENABLED)
@@ -109,22 +220,23 @@ export function usePlaygroundState() {
   }, [])
 
   return {
-    // State
     config,
     parameterEnabled,
     messages,
+    chatSessions,
+    activeChatId,
+    activeChat,
     models,
     groups,
-
-    // Setters
     setModels,
     setGroups,
-
-    // Actions
     updateConfig,
     updateParameterEnabled,
     updateMessages,
     clearMessages,
     resetConfig,
+    createChat,
+    selectChat,
+    deleteChat,
   }
 }

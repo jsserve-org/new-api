@@ -16,13 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable'
 import { getUserModels, getUserGroups } from './api'
 import { PlaygroundChat } from './components/playground-chat'
 import { PlaygroundInput } from './components/playground-input'
+import { PlaygroundSidebar } from './components/playground-sidebar'
 import { usePlaygroundState, useChatHandler } from './hooks'
 import { createUserMessage, createLoadingAssistantMessage } from './lib'
 import type { Message as MessageType } from './types'
@@ -33,12 +39,17 @@ export function Playground() {
     config,
     parameterEnabled,
     messages,
+    chatSessions,
+    activeChatId,
     models,
     groups,
     updateMessages,
     setModels,
     setGroups,
     updateConfig,
+    createChat,
+    selectChat,
+    deleteChat,
   } = usePlaygroundState()
 
   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
@@ -47,12 +58,12 @@ export function Playground() {
     onMessageUpdate: updateMessages,
   })
 
-  // Edit dialog state
   const [editingMessageKey, setEditingMessageKey] = useState<string | null>(
     null
   )
+  const [chatSearchQuery, setChatSearchQuery] = useState('')
+  const sidebarSearchRef = useRef<HTMLInputElement | null>(null)
 
-  // Load models
   const { data: modelsData, isLoading: isLoadingModels } = useQuery({
     queryKey: ['playground-models'],
     queryFn: async () => {
@@ -69,7 +80,6 @@ export function Playground() {
     },
   })
 
-  // Load groups
   const { data: groupsData } = useQuery({
     queryKey: ['playground-groups'],
     queryFn: async () => {
@@ -86,20 +96,17 @@ export function Playground() {
     },
   })
 
-  // Update models when data changes
   useEffect(() => {
     if (!modelsData) return
 
     setModels(modelsData)
 
-    // Set default model if current model is not available
     const isCurrentModelValid = modelsData.some((m) => m.value === config.model)
     if (modelsData.length > 0 && !isCurrentModelValid) {
       updateConfig('model', modelsData[0].value)
     }
   }, [modelsData, config.model, setModels, updateConfig])
 
-  // Update groups when data changes
   useEffect(() => {
     if (!groupsData) return
 
@@ -114,29 +121,38 @@ export function Playground() {
     }
   }, [groupsData, setGroups, config.group, updateConfig])
 
+  const filteredChats = useMemo(() => {
+    const query = chatSearchQuery.trim().toLowerCase()
+    if (!query) return chatSessions
+
+    return chatSessions.filter((chat) => {
+      if (chat.title.toLowerCase().includes(query)) return true
+      return chat.messages.some((message) =>
+        message.versions?.some((version) =>
+          version.content.toLowerCase().includes(query)
+        )
+      )
+    })
+  }, [chatSearchQuery, chatSessions])
+
   const handleSendMessage = (text: string) => {
     const userMessage = createUserMessage(text)
     const assistantMessage = createLoadingAssistantMessage()
 
     const newMessages = [...messages, userMessage, assistantMessage]
     updateMessages(newMessages)
-
-    // Send chat request
     sendChat(newMessages)
   }
 
   const handleCopyMessage = (message: MessageType) => {
-    // Copy is handled in MessageActions component
     // eslint-disable-next-line no-console
     console.log('Message copied:', message.key)
   }
 
   const handleRegenerateMessage = (message: MessageType) => {
-    // Find the message index and regenerate from there
     const messageIndex = messages.findIndex((m) => m.key === message.key)
     if (messageIndex === -1) return
 
-    // Remove messages after this one and regenerate
     const messagesUpToHere = messages.slice(0, messageIndex)
     const loadingMessage = createLoadingAssistantMessage()
     const newMessages = [...messagesUpToHere, loadingMessage]
@@ -153,7 +169,6 @@ export function Playground() {
     if (!open) setEditingMessageKey(null)
   }, [])
 
-  // Apply edit and optionally re-submit from the edited user message
   const applyEdit = useCallback(
     (newContent: string, submit: boolean) => {
       if (!editingMessageKey) return
@@ -188,40 +203,112 @@ export function Playground() {
     updateMessages(newMessages)
   }
 
-  return (
-    <div className='relative flex size-full flex-col overflow-hidden'>
-      {/* Full-width scroll container: scrolling works even over side whitespace */}
-      <div className='flex flex-1 flex-col overflow-hidden'>
-        <PlaygroundChat
-          messages={messages}
-          onCopyMessage={handleCopyMessage}
-          onRegenerateMessage={handleRegenerateMessage}
-          onEditMessage={handleEditMessage}
-          onDeleteMessage={handleDeleteMessage}
-          isGenerating={isGenerating}
-          editingKey={editingMessageKey}
-          onCancelEdit={handleEditOpenChange}
-          onSaveEdit={(newContent) => applyEdit(newContent, false)}
-          onSaveEditAndSubmit={(newContent) => applyEdit(newContent, true)}
-        />
-      </div>
+  const handleCreateChat = useCallback(() => {
+    if (isGenerating) {
+      toast.info(t('Please wait for the current response to finish.'))
+      return
+    }
+    createChat()
+    setChatSearchQuery('')
+  }, [createChat, isGenerating, t])
 
-      {/* Input area: center content and constrain to the same container width */}
-      <div className='mx-auto w-full max-w-4xl'>
-        <PlaygroundInput
-          disabled={isGenerating}
-          groups={groups}
-          groupValue={config.group}
-          isGenerating={isGenerating}
-          isModelLoading={isLoadingModels}
-          modelValue={config.model}
-          models={models}
-          onGroupChange={(value) => updateConfig('group', value)}
-          onModelChange={(value) => updateConfig('model', value)}
-          onStop={stopGeneration}
-          onSubmit={handleSendMessage}
-        />
-      </div>
-    </div>
+  const handleSelectChat = useCallback(
+    (chatId: string) => {
+      if (isGenerating) {
+        toast.info(t('Please wait for the current response to finish.'))
+        return
+      }
+      selectChat(chatId)
+    },
+    [isGenerating, selectChat, t]
+  )
+
+  const handleDeleteChat = useCallback(
+    (chatId: string) => {
+      if (isGenerating) {
+        toast.info(t('Please wait for the current response to finish.'))
+        return
+      }
+      deleteChat(chatId)
+    },
+    [deleteChat, isGenerating, t]
+  )
+
+  const handleSearchClick = useCallback(() => {
+    sidebarSearchRef.current?.focus()
+    toast.info(t('Search your chat history from the sidebar.'))
+  }, [t])
+
+  return (
+    <ResizablePanelGroup direction='horizontal' className='h-full min-h-0'>
+      <ResizablePanel defaultSize={24} minSize={18} maxSize={32}>
+        <div className='h-full min-h-0'>
+          <PlaygroundSidebar
+            chats={filteredChats}
+            activeChatId={activeChatId}
+            searchQuery={chatSearchQuery}
+            searchInputRef={sidebarSearchRef}
+            disabled={isGenerating}
+            onSearchQueryChange={setChatSearchQuery}
+            onCreateChat={handleCreateChat}
+            onSelectChat={handleSelectChat}
+            onDeleteChat={handleDeleteChat}
+          />
+        </div>
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel defaultSize={76} minSize={50}>
+        <div className='relative flex size-full flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20'>
+          <div className='border-b px-4 py-3 sm:px-6'>
+            <div className='mx-auto flex w-full max-w-4xl items-center justify-between gap-3'>
+              <div className='min-w-0'>
+                <h1 className='truncate text-sm font-semibold sm:text-base'>
+                  {
+                    chatSessions.find((chat) => chat.id === activeChatId)?.title ||
+                    t('New Chat')
+                  }
+                </h1>
+                <p className='text-muted-foreground text-xs sm:text-sm'>
+                  {t('Persistent chat playground with searchable conversations.')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className='flex flex-1 flex-col overflow-hidden'>
+            <PlaygroundChat
+              messages={messages}
+              onCopyMessage={handleCopyMessage}
+              onRegenerateMessage={handleRegenerateMessage}
+              onEditMessage={handleEditMessage}
+              onDeleteMessage={handleDeleteMessage}
+              isGenerating={isGenerating}
+              editingKey={editingMessageKey}
+              onCancelEdit={handleEditOpenChange}
+              onSaveEdit={(newContent) => applyEdit(newContent, false)}
+              onSaveEditAndSubmit={(newContent) => applyEdit(newContent, true)}
+            />
+          </div>
+
+          <div className='mx-auto w-full max-w-4xl px-3 pb-3 sm:px-4 sm:pb-4'>
+            <PlaygroundInput
+              disabled={isGenerating}
+              groups={groups}
+              groupValue={config.group}
+              isGenerating={isGenerating}
+              isModelLoading={isLoadingModels}
+              modelValue={config.model}
+              models={models}
+              onGroupChange={(value) => updateConfig('group', value)}
+              onModelChange={(value) => updateConfig('model', value)}
+              onSearchClick={handleSearchClick}
+              onStop={stopGeneration}
+              onSubmit={handleSendMessage}
+              showSuggestions={messages.length === 0}
+            />
+          </div>
+        </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   )
 }

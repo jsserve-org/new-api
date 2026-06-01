@@ -55,6 +55,7 @@ import type { ModelOption, GroupOption } from '../types'
 interface PlaygroundInputProps {
   onSubmit: (text: string) => void
   onStop?: () => void
+  onSearchClick?: () => void
   disabled?: boolean
   isGenerating?: boolean
   models: ModelOption[]
@@ -64,6 +65,7 @@ interface PlaygroundInputProps {
   groups: GroupOption[]
   groupValue: string
   onGroupChange: (value: string) => void
+  showSuggestions?: boolean
 }
 
 const suggestions = [
@@ -78,6 +80,7 @@ const suggestions = [
 export function PlaygroundInput({
   onSubmit,
   onStop,
+  onSearchClick,
   disabled,
   isGenerating,
   models,
@@ -87,6 +90,7 @@ export function PlaygroundInput({
   groups,
   groupValue,
   onGroupChange,
+  showSuggestions = true,
 }: PlaygroundInputProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
@@ -173,7 +177,13 @@ export function PlaygroundInput({
             <PromptInputButton
               className='border font-medium'
               disabled={disabled}
-              onClick={() => toast.info(t('Search feature in development'))}
+              onClick={() => {
+                if (onSearchClick) {
+                  onSearchClick()
+                  return
+                }
+                toast.info(t('Search feature in development'))
+              }}
               variant='outline'
             >
               <GlobeIcon size={16} />
@@ -219,21 +229,23 @@ export function PlaygroundInput({
         </PromptInputFooter>
       </PromptInput>
 
-      <Suggestions>
-        {suggestions.map(({ icon: Icon, text, color }) => (
-          <Suggestion
-            className={`text-xs font-normal sm:text-sm ${
-              text === 'More' ? 'hidden sm:flex' : ''
-            }`}
-            key={text}
-            onClick={() => handleSuggestionClick(text)}
-            suggestion={text}
-          >
-            {Icon && <Icon size={16} style={{ color }} />}
-            {text}
-          </Suggestion>
-        ))}
-      </Suggestions>
+      {showSuggestions && (
+        <Suggestions>
+          {suggestions.map(({ icon: Icon, text, color }) => (
+            <Suggestion
+              className={`text-xs font-normal sm:text-sm ${
+                text === 'More' ? 'hidden sm:flex' : ''
+              }`}
+              key={text}
+              onClick={() => handleSuggestionClick(text)}
+              suggestion={text}
+            >
+              {Icon && <Icon size={16} style={{ color }} />}
+              {text}
+            </Suggestion>
+          ))}
+        </Suggestions>
+      )}
     </div>
   )
 }

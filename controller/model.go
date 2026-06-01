@@ -155,18 +155,50 @@ func buildOpenAIModel(modelName string, ownerByModel map[string]string) dto.Open
 	if staticModel, ok := openAIModelsMap[modelName]; ok {
 		oaiModel = staticModel
 	} else {
+		ownedBy := "custom"
+		if service.IsAutoRoutingModel(modelName) {
+			ownedBy = "auto-router"
+		}
 		oaiModel = dto.OpenAIModels{
 			Id:      modelName,
 			Object:  "model",
 			Created: 1626777600,
-			OwnedBy: "custom",
+			OwnedBy: ownedBy,
 		}
 	}
 	if owner, ok := ownerByModel[modelName]; ok && owner != "" {
 		oaiModel.OwnedBy = owner
 	}
-	oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
+	if !service.IsAutoRoutingModel(modelName) {
+		oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
+	}
 	return oaiModel
+}
+
+func buildAutoRoutingAliases(modelNames []string) []string {
+	aliases := []string{service.AutoModelName}
+	seen := map[string]bool{service.AutoModelName: true}
+	for _, modelName := range modelNames {
+		trimmed := strings.ToLower(strings.TrimSpace(modelName))
+		if trimmed == "" || service.IsAutoRoutingModel(trimmed) {
+			continue
+		}
+		for _, splitter := range []string{"/", "-", "_", "."} {
+			if idx := strings.Index(trimmed, splitter); idx > 0 {
+				trimmed = trimmed[:idx]
+				break
+			}
+		}
+		if len(trimmed) < 3 {
+			continue
+		}
+		alias := service.AutoModelPrefix + trimmed
+		if !seen[alias] {
+			seen[alias] = true
+			aliases = append(aliases, alias)
+		}
+	}
+	return aliases
 }
 
 type modelListGroups struct {
@@ -268,8 +300,12 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 	}
 
-	if len(userModelNames) > 0 && !common.StringsContains(userModelNames, service.AutoModelName) {
-		userModelNames = append(userModelNames, service.AutoModelName)
+	if len(userModelNames) > 0 {
+		for _, alias := range buildAutoRoutingAliases(userModelNames) {
+			if !common.StringsContains(userModelNames, alias) {
+				userModelNames = append(userModelNames, alias)
+			}
+		}
 	}
 
 	ownerByModel := map[string]string{}
@@ -342,6 +378,21 @@ func EnabledListModels(c *gin.Context) {
 
 func RetrieveModel(c *gin.Context, modelType int) {
 	modelId := c.Param("model")
+	if service.IsAutoRoutingModel(modelId) {
+		aiModel := buildOpenAIModel(modelId, nil)
+		switch modelType {
+		case constant.ChannelTypeAnthropic:
+			c.JSON(200, dto.AnthropicModel{
+				ID:          aiModel.Id,
+				CreatedAt:   time.Unix(int64(aiModel.Created), 0).UTC().Format(time.RFC3339),
+				DisplayName: aiModel.Id,
+				Type:        "model",
+			})
+		default:
+			c.JSON(200, aiModel)
+		}
+		return
+	}
 	if aiModel, ok := openAIModelsMap[modelId]; ok {
 		switch modelType {
 		case constant.ChannelTypeAnthropic:

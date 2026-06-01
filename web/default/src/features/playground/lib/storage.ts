@@ -16,9 +16,36 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { nanoid } from 'nanoid'
 import { STORAGE_KEYS } from '../constants'
-import type { PlaygroundConfig, ParameterEnabled, Message } from '../types'
+import type {
+  PlaygroundConfig,
+  ParameterEnabled,
+  Message,
+  ChatSession,
+} from '../types'
 import { sanitizeMessagesOnLoad } from './message-utils'
+
+function sanitizeChatSession(session: ChatSession): ChatSession {
+  return {
+    ...session,
+    title: session.title || 'New Chat',
+    createdAt: Number(session.createdAt) || Date.now(),
+    updatedAt: Number(session.updatedAt) || Date.now(),
+    messages: sanitizeMessagesOnLoad(session.messages || []),
+  }
+}
+
+function createMigratedChat(messages: Message[]): ChatSession {
+  const now = Date.now()
+  return {
+    id: nanoid(),
+    title: 'New Chat',
+    createdAt: now,
+    updatedAt: now,
+    messages: sanitizeMessagesOnLoad(messages),
+  }
+}
 
 /**
  * Load playground config from localStorage
@@ -93,7 +120,6 @@ export function loadMessages(): Message[] | null {
         return null
       }
       const sanitized = sanitizeMessagesOnLoad(parsed as Message[])
-      // Persist sanitized result to avoid re-sanitizing on subsequent loads
       if (sanitized !== parsed) {
         saveMessages(sanitized)
       }
@@ -118,14 +144,75 @@ export function saveMessages(messages: Message[]): void {
   }
 }
 
+export function loadChats(): ChatSession[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.CHATS)
+    if (saved) {
+      const parsed: unknown = JSON.parse(saved)
+      if (Array.isArray(parsed)) {
+        const chats = parsed.map((chat) => sanitizeChatSession(chat as ChatSession))
+        saveChats(chats)
+        return chats
+      }
+    }
+
+    const legacyMessages = loadMessages()
+    if (legacyMessages?.length) {
+      const migrated = [createMigratedChat(legacyMessages)]
+      saveChats(migrated)
+      saveActiveChatId(migrated[0].id)
+      return migrated
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to load chats:', error)
+  }
+
+  return []
+}
+
+export function saveChats(chats: ChatSession[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify(chats))
+    const activeChat = chats.find((chat) => chat.messages.length > 0) ?? chats[0]
+    if (activeChat) {
+      saveMessages(activeChat.messages)
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to save chats:', error)
+  }
+}
+
+export function loadActiveChatId(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.ACTIVE_CHAT_ID)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to load active chat id:', error)
+  }
+  return null
+}
+
+export function saveActiveChatId(chatId: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_CHAT_ID, chatId)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to save active chat id:', error)
+  }
+}
+
 /**
  * Clear all playground data
  */
 export function clearPlaygroundData(): void {
   try {
     localStorage.removeItem(STORAGE_KEYS.CONFIG)
-    localStorage.removeItem(STORAGE_KEYS.PARAMETER_ENABLED)
     localStorage.removeItem(STORAGE_KEYS.MESSAGES)
+    localStorage.removeItem(STORAGE_KEYS.CHATS)
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_CHAT_ID)
+    localStorage.removeItem(STORAGE_KEYS.PARAMETER_ENABLED)
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to clear playground data:', error)

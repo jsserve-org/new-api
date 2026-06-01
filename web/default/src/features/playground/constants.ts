@@ -69,6 +69,8 @@ export const DEFAULT_PARAMETER_ENABLED: ParameterEnabled = {
 export const STORAGE_KEYS = {
   CONFIG: 'playground_config',
   MESSAGES: 'playground_messages',
+  CHATS: 'playground_chats',
+  ACTIVE_CHAT_ID: 'playground_active_chat_id',
   PARAMETER_ENABLED: 'playground_parameter_enabled',
 } as const
 
